@@ -1,0 +1,5 @@
+.gitattributes
+
+database/
+push_to_git.bat
+/includes/database.config.php

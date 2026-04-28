@@ -1,150 +1,142 @@
+:root {
+    --bg: #f3f7f6;
+    --panel: #ffffff;
+    --text: #133232;
+    --muted: #5d7471;
+    --line: #d7e4e1;
+    --accent: #0b5a56;
+    --accent-2: #ee6c4d;
+    --danger: #ae2f29;
+}
 
-body{
-    text-align: center;
-    background-color: rgb(248, 248, 248);
-    width: 100%;
+* { box-sizing: border-box; }
+
+body {
+    margin: 0;
+    background: radial-gradient(circle at top right, #d7ebe6 0%, var(--bg) 60%);
+    color: var(--text);
+    font-family: 'Manrope', sans-serif;
 }
-#monthAndYear{
-    font-size: 40px;
-}
-table{
-    width: 84%;
+
+.app-shell {
+    max-width: 1180px;
     margin: 0 auto;
-}
-
-th, td{
-    width: 12%;
-    border: 1px solid black;
-}
-tr{
-    height: 100px;
-    border: 1px solid black;
-}
-thead tr{
-    height: 30px;
-}
-.otherDay{
-    font-weight: 100;
-    font-style: italic;
-}
-#loginSignup{
-    display: inline-block;
-}
-#loginSignup button{
-    padding: 5px 18px;
-}
-#createEvent{
-    border: 1px solid black;
-    width: fit-content;
-    padding: 10px;
-    border-radius: 10px;
-    position: fixed;
-    left: 20%;
-    top: 20%;
-    background-color: white;
-    z-index: 100;
-}
-#closeCreateBtn{
-    float: right;
-    background-color: red;
-    border-radius: 5px;
-    border: 1px solid rgb(99, 99, 99);
-    /* font-size: 13px; */
-    padding: 5px 10px;
-    margin-top: 10px;
-}
-#closeEventBtn{
-    float: right;
-    background-color: red;
-    border-radius: 5px;
-    border: 1px solid rgb(99, 99, 99);
-    padding: 5px 10px;
-    
-}
-.createEl{
-    margin: 20px;
-}
-.events{
-    cursor: pointer;
-}
-.events:hover{
-    background-color: rgb(240, 240, 240);
-}
-.eventTime{
-    display: inline;
-    font-style: italic;
-    color: gray;
-}
-.eventTitle{
-    display: inline;
-    color: blue;
-}
-#eventPopUp{
-    height: 30%;
-    width: 20%;
-    position: absolute;
-    left: 30%;
-    top: 20%;
-    background-color: white;
-    border-radius: 10px;
-    border: 1px solid black;
-    z-index: 100;
-    color: black;
     padding: 20px;
 }
-#popHeading{
-    font-size: 30px;
-    padding-left: 30px;
-    padding-right: 30px;
-    padding-top: 10px;
-    margin-top: 10px;
-    padding-bottom: 30px;
-    margin-bottom: 0px;
+
+.topbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 18px;
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    background: var(--panel);
 }
-#popDetails{
-    margin-top: 0px;
-    padding-right: 30px;
-    padding-left: 30px;
-    padding-top: 10px;
-    padding-bottom: 40px;
+
+.brand { display: flex; align-items: center; gap: 14px; }
+.brand img { width: 52px; height: 52px; border-radius: 12px; background: #e9f2f0; }
+.brand h1 { margin: 0; font-size: 1.3rem; }
+.brand p { margin: 2px 0 0; color: var(--muted); font-size: 0.88rem; }
+
+.panel {
+    margin-top: 14px;
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    background: var(--panel);
+    overflow: hidden;
 }
-#deleteEvent{
-    float: right;
+
+.toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    border-bottom: 1px solid var(--line);
+    padding: 14px;
 }
-#calendarTable{
-    /* display: inline-block; */
-} 
-#prevBtn, #nextBtn{
-    border-radius: 20px;
-    font-size: 20px;
-    background-color: blue;
+
+.nav-group, .controls-group { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+#rangeLabel { margin: 0 0 0 8px; font-size: 1rem; }
+
+button, select, input, textarea {
+    font: inherit;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 9px 10px;
+    background: #fff;
 }
-#createEventBtn{
-    margin-left: 10%;
-    margin-right: 10%;
+
+button { cursor: pointer; }
+button.accent { background: var(--accent); color: #fff; border-color: var(--accent); }
+button.danger { background: var(--danger); color: #fff; border-color: var(--danger); }
+
+.calendar-root { padding: 14px; min-height: 56vh; }
+.calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 8px;
 }
-button {
-    background-color: blue; 
-    border: none;
-    color: white;
-    padding: 10px 25px;
-    text-align: center;
-    text-decoration: none;
-    display: inline-block;
-    font-size: 16px;
+
+.day-head {
+    font-size: 0.83rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+}
+
+.day-cell {
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    min-height: 118px;
+    padding: 8px;
+    background: #fbfdfc;
+}
+
+.day-cell.other { opacity: 0.55; }
+.day-num { font-weight: 800; font-size: 0.92rem; margin-bottom: 6px; }
+.event-pill {
+    border-radius: 8px;
+    padding: 5px 7px;
+    margin-top: 4px;
+    font-size: 0.8rem;
+    color: #fff;
+    background: var(--accent);
     cursor: pointer;
-    border-radius: 5px;
-  }
-h2{
-    display: inline-block;
 }
-input{
-    height: 25px;
-    border: 1px solid rgba(0, 0, 17, 0.363);
+
+.list-view { display: grid; gap: 10px; }
+.event-card {
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 12px;
+    background: #fcfffe;
 }
-.editEl{
-    margin: 5px;
+.event-card h4 { margin: 0 0 6px; }
+.event-meta { color: var(--muted); margin: 0 0 8px; font-size: 0.9rem; }
+
+dialog {
+    border: none;
+    border-radius: 14px;
+    width: min(640px, 94vw);
+    padding: 0;
 }
-#editTime{
-    margin-bottom: 10px;
+
+dialog::backdrop { background: rgba(7, 26, 24, 0.55); }
+
+#eventForm, .auth-grid {
+    display: grid;
+    gap: 8px;
+    padding: 16px;
+}
+
+.auth-grid { grid-template-columns: 1fr 1fr; }
+.dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 10px; }
+
+@media (max-width: 840px) {
+    .auth-grid { grid-template-columns: 1fr; }
+    .calendar-grid { grid-template-columns: repeat(2, 1fr); }
 }

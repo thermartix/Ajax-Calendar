@@ -1,0 +1,8 @@
+<?php
+return [
+    'host' => 'your-remote-host',
+    'user' => 'your-remote-user',
+    'pass' => 'your-remote-password',
+    'name' => 'd130770_jxcal',
+    'port' => 3306
+];

@@ -93,6 +93,43 @@ function formatEventTimeRange(startIso, endIso) {
     return `Start: ${formatDateTimeByPreference(s)}\nEnd: ${formatDateTimeByPreference(e)}`;
 }
 
+function formatTimeRangeOnly(startIso, endIso) {
+    const s = parseSqlLocal(startIso);
+    const e = parseSqlLocal(endIso);
+    if (!s || !e) return '';
+    if (state.datetimeFormat === 'eu') {
+        return `${String(s.getHours()).padStart(2, '0')}:${String(s.getMinutes()).padStart(2, '0')}-${String(e.getHours()).padStart(2, '0')}:${String(e.getMinutes()).padStart(2, '0')}`;
+    }
+    const to12 = (d) => {
+        const h = d.getHours();
+        const m = String(d.getMinutes()).padStart(2, '0');
+        const ap = h >= 12 ? 'PM' : 'AM';
+        const hh = ((h + 11) % 12) + 1;
+        return `${hh}:${m} ${ap}`;
+    };
+    return `${to12(s)}-${to12(e)}`;
+}
+
+function recurrenceSummary(eventItem) {
+    if (!eventItem || eventItem.recurrence_type !== 'monthly_nth_weekday') return '';
+    const weekdayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const nthMap = { 1: '1st', 2: '2nd', 3: '3rd', 4: '4th', 5: '5th' };
+    const weekday = weekdayNames[Number(eventItem.recur_weekday)];
+    if (!weekday) return '';
+    let weeks = [];
+    if (Array.isArray(eventItem.recur_weeks)) {
+        weeks = eventItem.recur_weeks.map((n) => nthMap[Number(n)]).filter(Boolean);
+    } else if (typeof eventItem.recur_week === 'string' && eventItem.recur_week.includes(',')) {
+        weeks = eventItem.recur_week.split(',').map((v) => nthMap[Number(v.trim())]).filter(Boolean);
+    } else {
+        const one = nthMap[Number(eventItem.recur_week)];
+        if (one) weeks = [one];
+    }
+    if (!weeks.length) return '';
+    const weeksTxt = weeks.length === 1 ? weeks[0] : `${weeks.slice(0, -1).join(', ')} and ${weeks[weeks.length - 1]}`;
+    return `Every ${weeksTxt} ${weekday} of the month from ${formatTimeRangeOnly(eventItem.start_at, eventItem.end_at)}`;
+}
+
 function parseDateInput(value) {
     const v = String(value || '').trim();
     if (!v) return null;
@@ -204,7 +241,7 @@ function getRange() {
     const d = new Date(state.currentDate);
     if (state.view === 'day') return { start: new Date(d.getFullYear(), d.getMonth(), d.getDate()), end: new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59) };
     if (state.view === 'week') {
-        const day = d.getDay();
+        const day = (d.getDay() + 6) % 7; // Monday=0 ... Sunday=6
         const start = new Date(d);
         start.setDate(d.getDate() - day);
         const end = new Date(start);
@@ -240,7 +277,8 @@ function monthGrid(anchorDate) {
     const month = anchorDate.getMonth();
     const first = new Date(year, month, 1);
     const start = new Date(first);
-    start.setDate(first.getDate() - first.getDay());
+    const mondayIndex = (first.getDay() + 6) % 7; // Monday=0 ... Sunday=6
+    start.setDate(first.getDate() - mondayIndex);
     const days = [];
     for (let i = 0; i < 42; i += 1) {
         const d = new Date(start);
@@ -275,6 +313,7 @@ function openEventView(eventItem) {
     byId('eventViewCountriesRow').className = 'event-countries-inline';
     byId('eventViewMeta').textContent = formatEventTimeRange(eventItem.start_at, eventItem.end_at);
     byId('eventViewMeta').style.whiteSpace = 'pre-line';
+    byId('eventViewRecurrence').textContent = recurrenceSummary(eventItem);
     byId('eventViewDescription').textContent = eventItem.description || '';
     byId('eventViewLinkWrap').innerHTML = eventItem.event_link ? `<a href="${eventItem.event_link}" target="_blank" rel="noopener">${eventItem.event_link}</a>` : '';
 
@@ -325,6 +364,17 @@ function updateRecurrenceVisibility() {
     byId('recurrenceMonthlyWrap').style.display = show ? 'grid' : 'none';
 }
 
+function setEventFormImagePreview(src) {
+    const wrap = byId('eventFormImagePreview');
+    if (!src) {
+        wrap.style.display = 'none';
+        wrap.innerHTML = '';
+        return;
+    }
+    wrap.style.display = 'block';
+    wrap.innerHTML = `<img src="${src}" alt="Event header image preview">`;
+}
+
 function openEventDialog(eventItem = null, prefillDate = null) {
     if (!eventItem && !state.user) return;
     if (eventItem && (!state.user || !eventItem.can_edit)) return openEventView(eventItem);
@@ -334,6 +384,8 @@ function openEventDialog(eventItem = null, prefillDate = null) {
     byId('eventTitle').value = eventItem?.title || '';
     byId('eventDescription').value = eventItem?.description || '';
     byId('eventLink').value = eventItem?.event_link || '';
+    byId('eventImage').value = '';
+    setEventFormImagePreview(eventItem?.image_path || null);
 
     const selectedCountries = new Set((eventItem?.country_ids || []).map((v) => String(v)));
     if (!selectedCountries.size && (state.user?.country_id || state.selectedCountry)) {
@@ -346,7 +398,12 @@ function openEventDialog(eventItem = null, prefillDate = null) {
 
     byId('eventLanguageCountry').value = eventItem?.event_language_country_code || '';
     byId('eventRecurrenceType').value = eventItem?.recurrence_type || 'none';
-    byId('eventRecurWeek').value = String(eventItem?.recur_week || 1);
+    const recurWeeks = Array.isArray(eventItem?.recur_weeks) && eventItem.recur_weeks.length
+        ? eventItem.recur_weeks.map((n) => String(n))
+        : [String(eventItem?.recur_week || 1)];
+    Array.from(byId('eventRecurWeek').options).forEach((opt) => {
+        opt.selected = recurWeeks.includes(opt.value);
+    });
     byId('eventRecurWeekday').value = String(eventItem?.recur_weekday ?? 1);
 
     if (eventItem) {
@@ -397,7 +454,7 @@ function renderMonthLike(anchor) {
     root.innerHTML = '';
     const grid = document.createElement('div');
     grid.className = 'calendar-grid';
-    ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].forEach((d) => {
+    ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].forEach((d) => {
         const h = document.createElement('div');
         h.className = 'day-head';
         h.textContent = d;
@@ -518,6 +575,13 @@ byId('nextBtn').addEventListener('click', async () => { stepDate(1); await refre
 byId('todayBtn').addEventListener('click', async () => { state.currentDate = new Date(); await refreshCalendar(); });
 byId('newEventBtn').addEventListener('click', () => openEventDialog());
 byId('cancelEventBtn').addEventListener('click', () => byId('eventDialog').close());
+byId('eventImage').addEventListener('change', () => {
+    const file = byId('eventImage').files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => setEventFormImagePreview(String(reader.result || ''));
+    reader.readAsDataURL(file);
+});
 byId('closeEventViewIconBtn').addEventListener('click', () => byId('eventViewDialog').close());
 byId('eventViewDialog').addEventListener('close', () => updateEventUrl(null));
 byId('eventViewDialog').addEventListener('close', () => { activeViewedEvent = null; });
@@ -564,6 +628,7 @@ byId('eventForm').addEventListener('submit', async (e) => {
         const recurrenceUntilInput = byId('eventRecurrenceUntil').value.trim();
         const recurrenceUntilDate = recurrenceUntilInput ? parseDateInput(recurrenceUntilInput) : null;
         if (recurrenceUntilInput && !recurrenceUntilDate) throw new Error('Invalid recurrence end date/time format');
+        const recurWeeks = Array.from(byId('eventRecurWeek').selectedOptions).map((o) => Number(o.value)).filter((n) => n >= 1 && n <= 5);
         const form = new FormData();
         if (byId('eventId').value) form.append('id', byId('eventId').value);
         form.append('title', byId('eventTitle').value.trim());
@@ -576,7 +641,9 @@ byId('eventForm').addEventListener('submit', async (e) => {
         form.append('end_at', toSqlDateTime(endDate));
         form.append('recurrence_type', recurrenceType);
         if (recurrenceType === 'monthly_nth_weekday') {
-            form.append('recur_week', byId('eventRecurWeek').value);
+            if (!recurWeeks.length) throw new Error('Select at least one week in month for recurrence');
+            form.append('recur_week', String(recurWeeks[0]));
+            form.append('recur_weeks', JSON.stringify(recurWeeks));
             form.append('recur_weekday', byId('eventRecurWeekday').value);
             form.append('recurrence_until', recurrenceUntilDate ? toSqlDateTime(recurrenceUntilDate) : '');
         }

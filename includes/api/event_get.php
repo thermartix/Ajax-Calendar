@@ -13,9 +13,14 @@ if ($check && mysqli_num_rows($check) > 0) {
 }
 
 $hasRecurringColumns = false;
+$hasRecurWeeksColumn = false;
 $recCheck = mysqli_query($mysqliConn, "SHOW COLUMNS FROM events LIKE 'recurrence_type'");
 if ($recCheck && mysqli_num_rows($recCheck) > 0) {
     $hasRecurringColumns = true;
+    $recurWeeksCheck = mysqli_query($mysqliConn, "SHOW COLUMNS FROM events LIKE 'recur_weeks'");
+    if ($recurWeeksCheck && mysqli_num_rows($recurWeeksCheck) > 0) {
+        $hasRecurWeeksColumn = true;
+    }
 }
 $hasEventLanguageColumn = false;
 $langCheck = mysqli_query($mysqliConn, "SHOW COLUMNS FROM events LIKE 'event_language_country_id'");
@@ -30,9 +35,13 @@ if ($interpCheck && mysqli_num_rows($interpCheck) > 0) {
 
 $sql = 'SELECT e.id, e.user_id, e.country_id, c.code AS country_code, c.name AS country_name, e.title, e.description, e.event_link, e.image_path, e.attachment_path, ';
 if ($hasRecurringColumns) {
-    $sql .= 'e.recurrence_type, e.recur_week, e.recur_weekday, ';
+    if ($hasRecurWeeksColumn) {
+        $sql .= 'e.recurrence_type, e.recur_week, e.recur_weeks, e.recur_weekday, ';
+    } else {
+        $sql .= 'e.recurrence_type, e.recur_week, NULL AS recur_weeks, e.recur_weekday, ';
+    }
 } else {
-    $sql .= '"none" AS recurrence_type, NULL AS recur_week, NULL AS recur_weekday, ';
+    $sql .= '"none" AS recurrence_type, NULL AS recur_week, NULL AS recur_weeks, NULL AS recur_weekday, ';
 }
 if ($hasEventLanguageColumn) {
     $sql .= 'elc.code AS event_language_country_code, elc.name AS event_language_country_name, ';
@@ -58,6 +67,18 @@ if (!$event) {
 $event['id'] = (int)$event['id'];
 $event['country_id'] = (int)$event['country_id'];
 $event['user_id'] = (int)$event['user_id'];
+$weeks = [];
+if (!empty($event['recur_weeks'])) {
+    foreach (explode(',', (string)$event['recur_weeks']) as $w) {
+        $n = (int)trim($w);
+        if ($n >= 1 && $n <= 5) $weeks[] = $n;
+    }
+}
+if (empty($weeks) && !empty($event['recur_week'])) {
+    $n = (int)$event['recur_week'];
+    if ($n >= 1 && $n <= 5) $weeks[] = $n;
+}
+$event['recur_weeks'] = $weeks;
 
 if ($hasEventCountries) {
     $cStmt = mysqli_prepare($mysqliConn, 'SELECT ec.country_id, c.code, c.name FROM event_countries ec JOIN countries c ON c.id = ec.country_id WHERE ec.event_id = ? ORDER BY c.name');

@@ -56,6 +56,7 @@ session_start();
         <form id="eventForm" method="dialog">
             <h3 id="eventDialogTitle">New Event</h3>
             <input type="hidden" id="eventId">
+            <div id="eventFormImagePreview" class="event-form-image-preview"></div>
 
             <label for="eventTitle">Title</label>
             <input id="eventTitle" required maxlength="180">
@@ -99,7 +100,7 @@ session_start();
             </select>
             <div id="recurrenceMonthlyWrap">
                 <label for="eventRecurWeek">Week in month</label>
-                <select id="eventRecurWeek">
+                <select id="eventRecurWeek" multiple size="5">
                     <option value="1">1st</option>
                     <option value="2">2nd</option>
                     <option value="3">3rd</option>
@@ -141,6 +142,7 @@ session_start();
                 <h3 id="eventViewTitle"></h3>
                 <div id="eventViewCountriesRow"></div>
                 <p id="eventViewMeta" class="event-meta"></p>
+                <p id="eventViewRecurrence" class="event-meta"></p>
                 <p id="eventViewDescription"></p>
                 <div class="event-view-main">
                     <div class="event-view-info">

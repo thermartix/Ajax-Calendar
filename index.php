@@ -92,6 +92,38 @@ session_start();
                 <input id="eventEndPicker" type="datetime-local" class="picker-proxy">
             </div>
 
+            <label for="eventRecurrenceType">Recurrence</label>
+            <select id="eventRecurrenceType">
+                <option value="none">No recurrence</option>
+                <option value="monthly_nth_weekday">Monthly: nth weekday</option>
+            </select>
+            <div id="recurrenceMonthlyWrap">
+                <label for="eventRecurWeek">Week in month</label>
+                <select id="eventRecurWeek">
+                    <option value="1">1st</option>
+                    <option value="2">2nd</option>
+                    <option value="3">3rd</option>
+                    <option value="4">4th</option>
+                    <option value="5">5th</option>
+                </select>
+                <label for="eventRecurWeekday">Weekday</label>
+                <select id="eventRecurWeekday">
+                    <option value="1">Monday</option>
+                    <option value="2">Tuesday</option>
+                    <option value="3">Wednesday</option>
+                    <option value="4">Thursday</option>
+                    <option value="5">Friday</option>
+                    <option value="6">Saturday</option>
+                    <option value="0">Sunday</option>
+                </select>
+                <label for="eventRecurrenceUntil">Recurrence End (optional)</label>
+                <div class="dt-row">
+                    <input id="eventRecurrenceUntil" placeholder="DD/MM/YYYY HH:MM">
+                    <button type="button" id="eventRecurrenceUntilPickBtn">Pick</button>
+                    <input id="eventRecurrenceUntilPicker" type="datetime-local" class="picker-proxy">
+                </div>
+            </div>
+
             <div class="dialog-actions">
                 <button type="button" id="deleteEventBtn" class="danger" hidden>Delete</button>
                 <button type="button" id="cancelEventBtn">Cancel</button>
@@ -120,9 +152,6 @@ session_start();
                     </div>
                 </div>
                 <p id="eventViewAuthor" class="event-author"></p>
-                <div class="dialog-actions">
-                    <button type="button" id="closeEventViewBtn">Close</button>
-                </div>
             </div>
         </article>
     </dialog>
@@ -144,6 +173,17 @@ session_start();
                 <button type="submit" class="accent">Save</button>
             </div>
         </form>
+    </dialog>
+
+    <dialog id="errorDialog">
+        <div class="error-dialog-body">
+            <h3>Error Details</h3>
+            <textarea id="errorDialogText" rows="10" readonly></textarea>
+            <div class="dialog-actions">
+                <button type="button" id="copyErrorBtn">Copy</button>
+                <button type="button" id="closeErrorBtn">Close</button>
+            </div>
+        </div>
     </dialog>
 
     <dialog id="authDialog">

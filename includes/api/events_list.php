@@ -5,6 +5,7 @@ $start = $_GET['start'] ?? null;
 $end = $_GET['end'] ?? null;
 $hasEventCountries = false;
 $hasRecurringColumns = false;
+$hasRecurrenceUntilColumn = false;
 $hasEventLanguageColumn = false;
 $hasInterpCountries = false;
 $check = mysqli_query($mysqliConn, "SHOW TABLES LIKE 'event_countries'");
@@ -15,6 +16,10 @@ if ($check && mysqli_num_rows($check) > 0) {
 $recCheck = mysqli_query($mysqliConn, "SHOW COLUMNS FROM events LIKE 'recurrence_type'");
 if ($recCheck && mysqli_num_rows($recCheck) > 0) {
     $hasRecurringColumns = true;
+    $recUntilCheck = mysqli_query($mysqliConn, "SHOW COLUMNS FROM events LIKE 'recurrence_until'");
+    if ($recUntilCheck && mysqli_num_rows($recUntilCheck) > 0) {
+        $hasRecurrenceUntilColumn = true;
+    }
 }
 $langCheck = mysqli_query($mysqliConn, "SHOW COLUMNS FROM events LIKE 'event_language_country_id'");
 if ($langCheck && mysqli_num_rows($langCheck) > 0) {
@@ -27,9 +32,13 @@ if ($interpCheck && mysqli_num_rows($interpCheck) > 0) {
 
 $sql = 'SELECT e.id, e.user_id, e.country_id, c.code AS country_code, c.name AS country_name, e.title, e.description, e.event_link, e.image_path, e.attachment_path, ';
 if ($hasRecurringColumns) {
-    $sql .= 'e.recurrence_type, e.recur_week, e.recur_weekday, ';
+    if ($hasRecurrenceUntilColumn) {
+        $sql .= 'e.recurrence_type, e.recur_week, e.recur_weekday, e.recurrence_until, ';
+    } else {
+        $sql .= 'e.recurrence_type, e.recur_week, e.recur_weekday, NULL AS recurrence_until, ';
+    }
 } else {
-    $sql .= '"none" AS recurrence_type, NULL AS recur_week, NULL AS recur_weekday, ';
+    $sql .= '"none" AS recurrence_type, NULL AS recur_week, NULL AS recur_weekday, NULL AS recurrence_until, ';
 }
 if ($hasEventLanguageColumn) {
     $sql .= 'elc.code AS event_language_country_code, elc.name AS event_language_country_name, ';
@@ -169,6 +178,7 @@ foreach ($rows as $ev) {
 
     $baseStart = new DateTime($ev['start_at']);
     $baseEnd = new DateTime($ev['end_at']);
+    $recurrenceUntil = !empty($ev['recurrence_until']) ? new DateTime($ev['recurrence_until']) : null;
     $durationSeconds = max(0, $baseEnd->getTimestamp() - $baseStart->getTimestamp());
     $nth = (int)$ev['recur_week'];
     $weekday = (int)$ev['recur_weekday'];
@@ -186,6 +196,13 @@ foreach ($rows as $ev) {
         if ($occDate) {
             $occStart = clone $occDate;
             $occStart->setTime((int)$baseStart->format('H'), (int)$baseStart->format('i'), (int)$baseStart->format('s'));
+            if ($occStart < $baseStart) {
+                $scan->modify('+1 month');
+                continue;
+            }
+            if ($recurrenceUntil && $occStart > $recurrenceUntil) {
+                break;
+            }
             $occEnd = clone $occStart;
             if ($durationSeconds > 0) {
                 $occEnd->modify('+' . $durationSeconds . ' seconds');

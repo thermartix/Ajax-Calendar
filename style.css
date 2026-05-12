@@ -77,6 +77,7 @@ button, select, input, textarea {
 }
 .dt-row { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center; }
 .picker-proxy { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+#recurrenceMonthlyWrap { display: none; gap: 8px; }
 
 button { cursor: pointer; }
 button.accent { background: var(--accent); color: #fff; border-color: var(--accent); }
@@ -141,6 +142,18 @@ dialog::backdrop { background: rgba(7, 26, 24, 0.55); }
     display: grid;
     gap: 8px;
     padding: 16px;
+}
+.error-dialog-body {
+    display: grid;
+    gap: 8px;
+    padding: 16px;
+}
+#errorDialogText {
+    width: min(760px, 90vw);
+    max-width: 100%;
+    resize: vertical;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+    font-size: 0.85rem;
 }
 
 .auth-grid { grid-template-columns: 1fr 1fr; }

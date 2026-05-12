@@ -35,6 +35,22 @@ $langColCheck = mysqli_query($mysqliConn, "SHOW COLUMNS FROM events LIKE 'event_
 if ($langColCheck && mysqli_num_rows($langColCheck) > 0) {
     $hasEventLanguageColumn = true;
 }
+$hasRecurringColumns = false;
+$recColCheck = mysqli_query($mysqliConn, "SHOW COLUMNS FROM events LIKE 'recurrence_type'");
+if ($recColCheck && mysqli_num_rows($recColCheck) > 0) {
+    $hasRecurringColumns = true;
+}
+$hasRecurrenceUntilColumn = false;
+$recUntilCheck = mysqli_query($mysqliConn, "SHOW COLUMNS FROM events LIKE 'recurrence_until'");
+if ($recUntilCheck && mysqli_num_rows($recUntilCheck) > 0) {
+    $hasRecurrenceUntilColumn = true;
+} elseif ($hasRecurringColumns) {
+    @mysqli_query($mysqliConn, "ALTER TABLE events ADD COLUMN recurrence_until DATETIME NULL AFTER recur_weekday");
+    $recUntilCheck2 = mysqli_query($mysqliConn, "SHOW COLUMNS FROM events LIKE 'recurrence_until'");
+    if ($recUntilCheck2 && mysqli_num_rows($recUntilCheck2) > 0) {
+        $hasRecurrenceUntilColumn = true;
+    }
+}
 $hasInterpTable = false;
 $interpTblCheck = mysqli_query($mysqliConn, "SHOW TABLES LIKE 'event_interpretation_countries'");
 if ($interpTblCheck && mysqli_num_rows($interpTblCheck) > 0) {
@@ -56,6 +72,7 @@ $endAt = (string)($_POST['end_at'] ?? '');
 $recurrenceType = (string)($_POST['recurrence_type'] ?? 'none');
 $recurWeek = isset($_POST['recur_week']) && $_POST['recur_week'] !== '' ? (int)$_POST['recur_week'] : null;
 $recurWeekday = isset($_POST['recur_weekday']) && $_POST['recur_weekday'] !== '' ? (int)$_POST['recur_weekday'] : null;
+$recurrenceUntil = isset($_POST['recurrence_until']) && trim((string)$_POST['recurrence_until']) !== '' ? trim((string)$_POST['recurrence_until']) : null;
 
 if ($title === '' || $countryIdPrimary <= 0 || $startAt === '' || $endAt === '') {
     respond(['success' => false, 'message' => 'Missing required fields'], 422);
@@ -66,13 +83,22 @@ if ($link !== '' && !filter_var($link, FILTER_VALIDATE_URL)) {
 if ($endAt < $startAt) {
     respond(['success' => false, 'message' => 'End must be after start'], 422);
 }
-if ($recurrenceType !== 'none' && $recurrenceType !== 'monthly_nth_weekday') {
+if ($hasRecurringColumns && $recurrenceType !== 'none' && $recurrenceType !== 'monthly_nth_weekday') {
     respond(['success' => false, 'message' => 'Invalid recurrence type'], 422);
 }
-if ($recurrenceType === 'monthly_nth_weekday') {
+if ($hasRecurringColumns && $recurrenceType === 'monthly_nth_weekday') {
     if ($recurWeek === null || $recurWeek < 1 || $recurWeek > 5 || $recurWeekday === null || $recurWeekday < 0 || $recurWeekday > 6) {
         respond(['success' => false, 'message' => 'Invalid monthly recurrence settings'], 422);
     }
+}
+if (!$hasRecurringColumns) {
+    $recurrenceType = 'none';
+    $recurWeek = null;
+    $recurWeekday = null;
+    $recurrenceUntil = null;
+}
+if ($recurrenceUntil !== null && $recurrenceUntil < $startAt) {
+    respond(['success' => false, 'message' => 'Recurrence end must be after event start'], 422);
 }
 
 if ($user['role'] === 'category_editor') {
@@ -131,12 +157,24 @@ if ($id) {
     $finalImagePath = $newImagePath ?: $existing['image_path'];
     $finalAttachmentPath = $newAttachmentPath ?: $existing['attachment_path'];
 
-    if ($hasEventLanguageColumn) {
+    if ($hasEventLanguageColumn && $hasRecurringColumns && $hasRecurrenceUntilColumn) {
+        $stmt = mysqli_prepare($mysqliConn, 'UPDATE events SET country_id = ?, title = ?, description = ?, event_link = ?, image_path = ?, attachment_path = ?, recurrence_type = ?, recur_week = ?, recur_weekday = ?, recurrence_until = ?, event_language_country_id = ?, start_at = ?, end_at = ? WHERE id = ?');
+        mysqli_stmt_bind_param($stmt, 'issssssiisissi', $countryIdPrimary, $title, $description, $link, $finalImagePath, $finalAttachmentPath, $recurrenceType, $recurWeek, $recurWeekday, $recurrenceUntil, $eventLanguageCountryId, $startAt, $endAt, $id);
+    } elseif ($hasEventLanguageColumn && $hasRecurringColumns && !$hasRecurrenceUntilColumn) {
         $stmt = mysqli_prepare($mysqliConn, 'UPDATE events SET country_id = ?, title = ?, description = ?, event_link = ?, image_path = ?, attachment_path = ?, recurrence_type = ?, recur_week = ?, recur_weekday = ?, event_language_country_id = ?, start_at = ?, end_at = ? WHERE id = ?');
         mysqli_stmt_bind_param($stmt, 'issssssiiissi', $countryIdPrimary, $title, $description, $link, $finalImagePath, $finalAttachmentPath, $recurrenceType, $recurWeek, $recurWeekday, $eventLanguageCountryId, $startAt, $endAt, $id);
-    } else {
+    } elseif ($hasEventLanguageColumn && !$hasRecurringColumns) {
+        $stmt = mysqli_prepare($mysqliConn, 'UPDATE events SET country_id = ?, title = ?, description = ?, event_link = ?, image_path = ?, attachment_path = ?, event_language_country_id = ?, start_at = ?, end_at = ? WHERE id = ?');
+        mysqli_stmt_bind_param($stmt, 'isssssissi', $countryIdPrimary, $title, $description, $link, $finalImagePath, $finalAttachmentPath, $eventLanguageCountryId, $startAt, $endAt, $id);
+    } elseif (!$hasEventLanguageColumn && $hasRecurringColumns && $hasRecurrenceUntilColumn) {
+        $stmt = mysqli_prepare($mysqliConn, 'UPDATE events SET country_id = ?, title = ?, description = ?, event_link = ?, image_path = ?, attachment_path = ?, recurrence_type = ?, recur_week = ?, recur_weekday = ?, recurrence_until = ?, start_at = ?, end_at = ? WHERE id = ?');
+        mysqli_stmt_bind_param($stmt, 'issssssiisssi', $countryIdPrimary, $title, $description, $link, $finalImagePath, $finalAttachmentPath, $recurrenceType, $recurWeek, $recurWeekday, $recurrenceUntil, $startAt, $endAt, $id);
+    } elseif (!$hasEventLanguageColumn && $hasRecurringColumns && !$hasRecurrenceUntilColumn) {
         $stmt = mysqli_prepare($mysqliConn, 'UPDATE events SET country_id = ?, title = ?, description = ?, event_link = ?, image_path = ?, attachment_path = ?, recurrence_type = ?, recur_week = ?, recur_weekday = ?, start_at = ?, end_at = ? WHERE id = ?');
         mysqli_stmt_bind_param($stmt, 'issssssiiisi', $countryIdPrimary, $title, $description, $link, $finalImagePath, $finalAttachmentPath, $recurrenceType, $recurWeek, $recurWeekday, $startAt, $endAt, $id);
+    } else {
+        $stmt = mysqli_prepare($mysqliConn, 'UPDATE events SET country_id = ?, title = ?, description = ?, event_link = ?, image_path = ?, attachment_path = ?, start_at = ?, end_at = ? WHERE id = ?');
+        mysqli_stmt_bind_param($stmt, 'isssssssi', $countryIdPrimary, $title, $description, $link, $finalImagePath, $finalAttachmentPath, $startAt, $endAt, $id);
     }
     mysqli_stmt_execute($stmt);
     mysqli_stmt_close($stmt);
@@ -173,12 +211,24 @@ if ($id) {
 }
 
 $userId = (int)$user['user_id'];
-if ($hasEventLanguageColumn) {
+if ($hasEventLanguageColumn && $hasRecurringColumns && $hasRecurrenceUntilColumn) {
+    $stmt = mysqli_prepare($mysqliConn, 'INSERT INTO events (user_id, country_id, title, description, event_link, image_path, attachment_path, recurrence_type, recur_week, recur_weekday, recurrence_until, event_language_country_id, start_at, end_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+    mysqli_stmt_bind_param($stmt, 'iissssssiisiss', $userId, $countryIdPrimary, $title, $description, $link, $newImagePath, $newAttachmentPath, $recurrenceType, $recurWeek, $recurWeekday, $recurrenceUntil, $eventLanguageCountryId, $startAt, $endAt);
+} elseif ($hasEventLanguageColumn && $hasRecurringColumns && !$hasRecurrenceUntilColumn) {
     $stmt = mysqli_prepare($mysqliConn, 'INSERT INTO events (user_id, country_id, title, description, event_link, image_path, attachment_path, recurrence_type, recur_week, recur_weekday, event_language_country_id, start_at, end_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
     mysqli_stmt_bind_param($stmt, 'iissssssiiiss', $userId, $countryIdPrimary, $title, $description, $link, $newImagePath, $newAttachmentPath, $recurrenceType, $recurWeek, $recurWeekday, $eventLanguageCountryId, $startAt, $endAt);
-} else {
+} elseif ($hasEventLanguageColumn && !$hasRecurringColumns) {
+    $stmt = mysqli_prepare($mysqliConn, 'INSERT INTO events (user_id, country_id, title, description, event_link, image_path, attachment_path, event_language_country_id, start_at, end_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+    mysqli_stmt_bind_param($stmt, 'iisssssiss', $userId, $countryIdPrimary, $title, $description, $link, $newImagePath, $newAttachmentPath, $eventLanguageCountryId, $startAt, $endAt);
+} elseif (!$hasEventLanguageColumn && $hasRecurringColumns && $hasRecurrenceUntilColumn) {
+    $stmt = mysqli_prepare($mysqliConn, 'INSERT INTO events (user_id, country_id, title, description, event_link, image_path, attachment_path, recurrence_type, recur_week, recur_weekday, recurrence_until, start_at, end_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+    mysqli_stmt_bind_param($stmt, 'iissssssiisss', $userId, $countryIdPrimary, $title, $description, $link, $newImagePath, $newAttachmentPath, $recurrenceType, $recurWeek, $recurWeekday, $recurrenceUntil, $startAt, $endAt);
+} elseif (!$hasEventLanguageColumn && $hasRecurringColumns && !$hasRecurrenceUntilColumn) {
     $stmt = mysqli_prepare($mysqliConn, 'INSERT INTO events (user_id, country_id, title, description, event_link, image_path, attachment_path, recurrence_type, recur_week, recur_weekday, start_at, end_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
     mysqli_stmt_bind_param($stmt, 'iisssssiiiss', $userId, $countryIdPrimary, $title, $description, $link, $newImagePath, $newAttachmentPath, $recurrenceType, $recurWeek, $recurWeekday, $startAt, $endAt);
+} else {
+    $stmt = mysqli_prepare($mysqliConn, 'INSERT INTO events (user_id, country_id, title, description, event_link, image_path, attachment_path, start_at, end_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)');
+    mysqli_stmt_bind_param($stmt, 'iisssssss', $userId, $countryIdPrimary, $title, $description, $link, $newImagePath, $newAttachmentPath, $startAt, $endAt);
 }
 mysqli_stmt_execute($stmt);
 $newId = mysqli_insert_id($mysqliConn);

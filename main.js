@@ -45,6 +45,12 @@ function t(key) {
     return I18N[lang]?.[key] || I18N.en[key] || key;
 }
 
+function showErrorWindow(message) {
+    const text = byId('errorDialogText');
+    text.value = String(message || 'Unknown error');
+    byId('errorDialog').showModal();
+}
+
 const byId = (id) => document.getElementById(id);
 const fmtDate = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
@@ -112,6 +118,13 @@ function toLocalInputValue(d) {
 
 function countryFlagHtml(code, cls = '') {
     const norm = String(code || '').trim().toLowerCase();
+    if (norm === 'dach') {
+        return [
+            `<span class="flag-chip ${cls}"><img src="https://flagcdn.com/w40/de.png" alt="DE"></span>`,
+            `<span class="flag-chip ${cls}"><img src="https://flagcdn.com/w40/at.png" alt="AT"></span>`,
+            `<span class="flag-chip ${cls}"><img src="https://flagcdn.com/w40/ch.png" alt="CH"></span>`
+        ].join('');
+    }
     if (/^[a-z]{2}$/.test(norm)) {
         return `<span class="flag-chip ${cls}"><img src="https://flagcdn.com/w40/${norm}.png" alt="${norm.toUpperCase()}"></span>`;
     }
@@ -159,6 +172,12 @@ function applyI18nTexts() {
         if (txt === '' || Object.values(I18N).some((d) => [d.share, d.copied, d.copyFailed].includes(txt))) {
             shareBtn.textContent = t('share');
         }
+    }
+    const isEu = state.datetimeFormat === 'eu';
+    byId('eventStart').placeholder = isEu ? 'DD/MM/YYYY HH:MM' : 'MM/DD/YYYY HH:MM AM';
+    byId('eventEnd').placeholder = isEu ? 'DD/MM/YYYY HH:MM' : 'MM/DD/YYYY HH:MM AM';
+    if (byId('eventRecurrenceUntil')) {
+        byId('eventRecurrenceUntil').placeholder = isEu ? 'DD/MM/YYYY HH:MM' : 'MM/DD/YYYY HH:MM AM';
     }
 }
 
@@ -292,11 +311,21 @@ function openEventView(eventItem) {
 }
 
 function fillDateField(fieldId, pickerId, dateObj) {
+    if (!dateObj) {
+        byId(fieldId).value = '';
+        byId(pickerId).value = '';
+        return;
+    }
     byId(fieldId).value = formatDateTimeByPreference(dateObj);
     byId(pickerId).value = toLocalInputValue(dateObj);
 }
 
-function openEventDialog(eventItem = null) {
+function updateRecurrenceVisibility() {
+    const show = byId('eventRecurrenceType').value === 'monthly_nth_weekday';
+    byId('recurrenceMonthlyWrap').style.display = show ? 'grid' : 'none';
+}
+
+function openEventDialog(eventItem = null, prefillDate = null) {
     if (!eventItem && !state.user) return;
     if (eventItem && (!state.user || !eventItem.can_edit)) return openEventView(eventItem);
 
@@ -316,18 +345,32 @@ function openEventDialog(eventItem = null) {
     Array.from(byId('eventInterpretationCountries').options).forEach((opt) => { opt.selected = selectedInterp.has(opt.dataset.code || ''); });
 
     byId('eventLanguageCountry').value = eventItem?.event_language_country_code || '';
+    byId('eventRecurrenceType').value = eventItem?.recurrence_type || 'none';
+    byId('eventRecurWeek').value = String(eventItem?.recur_week || 1);
+    byId('eventRecurWeekday').value = String(eventItem?.recur_weekday ?? 1);
 
     if (eventItem) {
         fillDateField('eventStart', 'eventStartPicker', parseSqlLocal(eventItem.start_at));
         fillDateField('eventEnd', 'eventEndPicker', parseSqlLocal(eventItem.end_at));
+        fillDateField('eventRecurrenceUntil', 'eventRecurrenceUntilPicker', parseSqlLocal(eventItem.recurrence_until || ''));
+    } else if (prefillDate instanceof Date && !Number.isNaN(prefillDate.getTime())) {
+        const startSeed = new Date(prefillDate.getFullYear(), prefillDate.getMonth(), prefillDate.getDate(), 9, 0, 0, 0);
+        const endSeed = new Date(prefillDate.getFullYear(), prefillDate.getMonth(), prefillDate.getDate(), 10, 0, 0, 0);
+        fillDateField('eventStart', 'eventStartPicker', startSeed);
+        fillDateField('eventEnd', 'eventEndPicker', endSeed);
+        byId('eventRecurrenceUntil').value = '';
+        byId('eventRecurrenceUntilPicker').value = '';
     } else {
         byId('eventStart').value = '';
         byId('eventEnd').value = '';
         byId('eventStartPicker').value = '';
         byId('eventEndPicker').value = '';
+        byId('eventRecurrenceUntil').value = '';
+        byId('eventRecurrenceUntilPicker').value = '';
     }
 
     byId('deleteEventBtn').hidden = !(eventItem && eventItem.can_edit);
+    updateRecurrenceVisibility();
     byId('eventDialog').showModal();
 }
 
@@ -376,7 +419,7 @@ function renderMonthLike(anchor) {
             pill.addEventListener('click', () => openEventDialog(e));
             cell.appendChild(pill);
         });
-        cell.addEventListener('dblclick', () => openEventDialog());
+        cell.addEventListener('dblclick', () => openEventDialog(null, d));
         grid.appendChild(cell);
     });
     root.appendChild(grid);
@@ -432,7 +475,12 @@ async function loadCountries() {
 }
 
 async function loadEvents() {
-    const { start, end } = getRange();
+    let { start, end } = getRange();
+    if (state.view === 'month') {
+        const days = monthGrid(state.currentDate);
+        start = days[0];
+        end = days[days.length - 1];
+    }
     const params = new URLSearchParams({ start: fmtDate(start), end: fmtDate(end) });
     if (state.selectedCountry) params.set('country_id', state.selectedCountry);
     state.events = (await api(`includes/api/events_list.php?${params.toString()}`)).events;
@@ -470,14 +518,24 @@ byId('nextBtn').addEventListener('click', async () => { stepDate(1); await refre
 byId('todayBtn').addEventListener('click', async () => { state.currentDate = new Date(); await refreshCalendar(); });
 byId('newEventBtn').addEventListener('click', () => openEventDialog());
 byId('cancelEventBtn').addEventListener('click', () => byId('eventDialog').close());
-byId('closeEventViewBtn').addEventListener('click', () => byId('eventViewDialog').close());
 byId('closeEventViewIconBtn').addEventListener('click', () => byId('eventViewDialog').close());
 byId('eventViewDialog').addEventListener('close', () => updateEventUrl(null));
 byId('eventViewDialog').addEventListener('close', () => { activeViewedEvent = null; });
 byId('cancelProfileBtn').addEventListener('click', () => byId('profileDialog').close());
+byId('closeErrorBtn').addEventListener('click', () => byId('errorDialog').close());
+byId('copyErrorBtn').addEventListener('click', async () => {
+    const txt = byId('errorDialogText').value || '';
+    try {
+        await navigator.clipboard.writeText(txt);
+    } catch (err) {
+        // keep silent; user can still select and copy manually
+    }
+});
 
 wireDateInput('eventStart', 'eventStartPicker', 'eventStartPickBtn');
 wireDateInput('eventEnd', 'eventEndPicker', 'eventEndPickBtn');
+wireDateInput('eventRecurrenceUntil', 'eventRecurrenceUntilPicker', 'eventRecurrenceUntilPickBtn');
+byId('eventRecurrenceType').addEventListener('change', updateRecurrenceVisibility);
 
 byId('profileForm').addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -502,6 +560,10 @@ byId('eventForm').addEventListener('submit', async (e) => {
         const countryIds = Array.from(byId('eventCountry').selectedOptions).map((o) => Number(o.value)).filter((n) => n > 0);
         if (!countryIds.length) throw new Error('Select at least one country');
         const interpIds = Array.from(byId('eventInterpretationCountries').selectedOptions).map((o) => Number(o.value)).filter((n) => n > 0);
+        const recurrenceType = byId('eventRecurrenceType').value;
+        const recurrenceUntilInput = byId('eventRecurrenceUntil').value.trim();
+        const recurrenceUntilDate = recurrenceUntilInput ? parseDateInput(recurrenceUntilInput) : null;
+        if (recurrenceUntilInput && !recurrenceUntilDate) throw new Error('Invalid recurrence end date/time format');
         const form = new FormData();
         if (byId('eventId').value) form.append('id', byId('eventId').value);
         form.append('title', byId('eventTitle').value.trim());
@@ -512,6 +574,12 @@ byId('eventForm').addEventListener('submit', async (e) => {
         form.append('interpretation_country_ids', JSON.stringify(interpIds));
         form.append('start_at', toSqlDateTime(startDate));
         form.append('end_at', toSqlDateTime(endDate));
+        form.append('recurrence_type', recurrenceType);
+        if (recurrenceType === 'monthly_nth_weekday') {
+            form.append('recur_week', byId('eventRecurWeek').value);
+            form.append('recur_weekday', byId('eventRecurWeekday').value);
+            form.append('recurrence_until', recurrenceUntilDate ? toSqlDateTime(recurrenceUntilDate) : '');
+        }
         const img = byId('eventImage').files[0];
         if (img) form.append('event_image', img);
         const response = await fetch('includes/api/event_save.php', { method: 'POST', body: form });
@@ -526,7 +594,7 @@ byId('eventForm').addEventListener('submit', async (e) => {
         byId('eventDialog').close();
         await refreshCalendar();
     } catch (err) {
-        alert(err.message || 'Could not save event');
+        showErrorWindow(err.message || 'Could not save event');
     }
 });
 

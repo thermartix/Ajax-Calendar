@@ -1,25 +1,27 @@
 # Ajax Calendar Clone Base
 
-Modern PHP + AJAX calendar base with:
-
+Features:
 - Views: year, month, week, day, list
-- Roles: `admin` (edit all) and `category_editor` (edit only own country category)
-- Switchable country categories for visitors
-- Event details: title, description, and event link (Zoom/website)
-- Logo support via `assets/logo.svg`
+- EU date/time formatting (dd/mm/yyyy, 24h)
+- Roles: `admin`, `category_editor`
+- Admin approval flow for newly registered users
+- Admin user handling: approve users and assign countries
+- Admin-editable countries (upsert)
+- User profile fields: first name, last name
+- Events show creator name
+- Event fields: title, description, event link
+- Separate login page: `login.php`
+- User/admin page: `admin.php`
 
-## Quick start
+Database:
+- Default DB: `d130770_jxcal`
+- New install: import `database/schema.sql`
+- Existing install: run `database/migration_2026_04_user_admin_upgrade.sql`
+- Timezone setting: run `database/migration_2026_04_timezone_setting.sql`
+- Event media fields: run `database/migration_2026_04_event_media.sql`
+- Event multi-country fields: run `database/migration_2026_04_event_multi_country.sql`
+- Recurring monthly events: run `database/migration_2026_04_recurring_events.sql`
 
-1. Import database schema:
-   - Run `database/schema.sql` in MySQL.
-2. Configure DB credentials by environment variables (optional):
-   - `CAL_DB_HOST`, `CAL_DB_USER`, `CAL_DB_PASS`, `CAL_DB_NAME`
-3. Serve with PHP:
-   - `php -S localhost:8000`
-4. Open:
-   - `http://localhost:8000`
-
-## Notes
-
-- Default DB fallback: `localhost`, `root`, empty password, DB `ajax_calendar_clone`.
-- Replace `assets/logo.svg` with your own logo file if needed.
+Config:
+- Local private config: `includes/database.config.php` (git-ignored)
+- Template in git: `includes/database.config.php.txt`

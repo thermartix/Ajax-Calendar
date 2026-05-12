@@ -2,6 +2,7 @@
 require_once __DIR__ . '/bootstrap.php';
 requireLogin();
 $user = currentUser($mysqliConn);
+$user['allowed_country_ids'] = userAllowedCountryIds($mysqliConn, (int)$user['user_id']);
 $data = jsonInput();
 $id = (int)($data['id'] ?? 0);
 if ($id <= 0) {
@@ -18,7 +19,7 @@ mysqli_stmt_close($stmt);
 if (!$existing) {
     respond(['success' => false, 'message' => 'Event not found'], 404);
 }
-if ($user['role'] !== 'admin' && (int)$existing['country_id'] !== (int)$user['country_id']) {
+if (!canEditEvent($user, ['country_id' => (int)$existing['country_id']])) {
     respond(['success' => false, 'message' => 'Not allowed to delete this event'], 403);
 }
 

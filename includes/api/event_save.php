@@ -171,6 +171,21 @@ function saveFileUpload(array $file, string $targetDir, string $webDir, array $a
     return rtrim($webDir, '/\\') . '/' . $safe;
 }
 
+function executeStmtOrEmojiError(mysqli_stmt $stmt): void {
+    try {
+        mysqli_stmt_execute($stmt);
+    } catch (Throwable $e) {
+        $msg = $e->getMessage();
+        if (stripos($msg, 'Incorrect string value') !== false) {
+            respond([
+                'success' => false,
+                'message' => 'Emoji/text character set not supported by current DB table collation. Please convert events.title and events.description to utf8mb4.'
+            ], 500);
+        }
+        throw $e;
+    }
+}
+
 $newImagePath = isset($_FILES['event_image']) ? saveFileUpload($_FILES['event_image'], $uploadBase, $webBase, ['jpg', 'jpeg', 'png', 'webp']) : null;
 $newAttachmentPath = isset($_FILES['event_attachment']) ? saveFileUpload($_FILES['event_attachment'], $uploadBase, $webBase, ['pdf']) : null;
 
@@ -235,7 +250,7 @@ if ($id) {
         $stmt = mysqli_prepare($mysqliConn, 'UPDATE events SET country_id = ?, title = ?, description = ?, event_link = ?, image_path = ?, attachment_path = ?, start_at = ?, end_at = ? WHERE id = ?');
         mysqli_stmt_bind_param($stmt, 'isssssssi', $countryIdPrimary, $title, $description, $link, $finalImagePath, $finalAttachmentPath, $startAt, $endAt, $id);
     }
-    mysqli_stmt_execute($stmt);
+    executeStmtOrEmojiError($stmt);
     mysqli_stmt_close($stmt);
 
     $dStmt = mysqli_prepare($mysqliConn, 'DELETE FROM event_countries WHERE event_id = ?');
@@ -309,7 +324,7 @@ if ($hasEventLanguageColumn && $hasRecurringColumns && $hasRecurrenceUntilColumn
     $stmt = mysqli_prepare($mysqliConn, 'INSERT INTO events (user_id, country_id, title, description, event_link, image_path, attachment_path, start_at, end_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)');
     mysqli_stmt_bind_param($stmt, 'iisssssss', $userId, $countryIdPrimary, $title, $description, $link, $newImagePath, $newAttachmentPath, $startAt, $endAt);
 }
-mysqli_stmt_execute($stmt);
+executeStmtOrEmojiError($stmt);
 $newId = mysqli_insert_id($mysqliConn);
 mysqli_stmt_close($stmt);
 

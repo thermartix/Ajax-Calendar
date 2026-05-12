@@ -26,7 +26,7 @@ body {
 
 .topbar {
     display: flex;
-    justify-content: space-between;
+    justify-content: flex-start;
     align-items: center;
     gap: 12px;
     padding: 14px 18px;
@@ -35,6 +35,12 @@ body {
     background: var(--panel);
 }
 .auth { position: relative; }
+.header-right {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
 
 .brand { display: flex; align-items: center; gap: 14px; }
 .brand img { height: 52px; width: auto; object-fit: contain; }
@@ -144,10 +150,25 @@ dialog::backdrop { background: rgba(7, 26, 24, 0.55); }
 .share-btn {
     position: absolute;
     top: 10px;
-    right: 10px;
+    left: 10px;
     z-index: 2;
     padding: 7px 10px;
     border-radius: 999px;
+    background: rgba(255, 255, 255, 0.92);
+}
+.close-icon-btn {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    z-index: 2;
+    width: 32px;
+    height: 32px;
+    border-radius: 999px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.1rem;
     background: rgba(255, 255, 255, 0.92);
 }
 .event-view-hero {
@@ -177,8 +198,18 @@ dialog::backdrop { background: rgba(7, 26, 24, 0.55); }
 .event-view-body { padding: 14px 16px 16px; }
 .event-view-body h3 { margin: 0 0 8px; }
 #eventViewLinkWrap { word-break: break-all; margin: 8px 0; }
+.event-view-main {
+    display: grid;
+    grid-template-columns: 1fr 120px;
+    gap: 12px;
+    align-items: start;
+}
 #eventViewQrWrap { margin-top: 8px; }
-#eventViewQrWrap img { width: 96px; height: 96px; display: block; }
+.event-view-qr {
+    display: flex;
+    justify-content: flex-end;
+}
+.event-view-qr img { width: 110px; height: 110px; display: block; }
 .event-author { font-size: 0.82rem; color: var(--muted); margin-top: 8px; }
 .event-view-body {
     max-height: min(70vh, 680px);
@@ -199,13 +230,18 @@ dialog::backdrop { background: rgba(7, 26, 24, 0.55); }
 }
 .flag-chip img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .flag-chip.main-language { width: 30px; height: 22px; }
+.event-countries-inline { margin: 2px 0 8px; }
 .lang-toggle {
-    font-size: 1.2rem;
     line-height: 1;
-    padding: 6px 10px;
+    padding: 5px 8px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
 }
+.lang-toggle img { width: 24px; height: 16px; object-fit: cover; display: block; border-radius: 2px; }
 .lang-menu {
     position: absolute;
+    right: 0;
     margin-top: 6px;
     background: #fff;
     border: 1px solid var(--line);
@@ -216,12 +252,17 @@ dialog::backdrop { background: rgba(7, 26, 24, 0.55); }
     z-index: 15;
 }
 .lang-item {
-    font-size: 1.15rem;
     line-height: 1;
-    padding: 6px 8px;
+    padding: 5px 7px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
 }
+.lang-item img { width: 24px; height: 16px; object-fit: cover; display: block; border-radius: 2px; }
 
 @media (max-width: 840px) {
     .auth-grid { grid-template-columns: 1fr; }
     .calendar-grid { grid-template-columns: repeat(2, 1fr); }
+    .event-view-main { grid-template-columns: 1fr; }
+    .event-view-qr { justify-content: flex-start; }
 }

@@ -8,23 +8,38 @@ if ((int)$user['is_approved'] !== 1) {
 $user['allowed_country_ids'] = userAllowedCountryIds($mysqliConn, (int)$user['user_id']);
 if (!function_exists('ensureEventMetaSchema')) {
     function ensureEventMetaSchema(mysqli $db): void {
-        $col = mysqli_query($db, "SHOW COLUMNS FROM events LIKE 'event_language_country_id'");
-        if (!$col || mysqli_num_rows($col) === 0) {
-            mysqli_query($db, "ALTER TABLE events ADD COLUMN event_language_country_id INT NULL");
-        }
-        $tbl = mysqli_query($db, "SHOW TABLES LIKE 'event_interpretation_countries'");
-        if (!$tbl || mysqli_num_rows($tbl) === 0) {
-            mysqli_query($db, "CREATE TABLE event_interpretation_countries (
-              event_id INT NOT NULL,
-              country_id INT NOT NULL,
-              PRIMARY KEY (event_id, country_id),
-              CONSTRAINT fk_event_interp_event FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE CASCADE,
-              CONSTRAINT fk_event_interp_country FOREIGN KEY (country_id) REFERENCES countries(id) ON DELETE CASCADE
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+        try {
+            $col = mysqli_query($db, "SHOW COLUMNS FROM events LIKE 'event_language_country_id'");
+            if (!$col || mysqli_num_rows($col) === 0) {
+                // Best-effort only; deployments without ALTER privileges must run migrations manually.
+                @mysqli_query($db, "ALTER TABLE events ADD COLUMN event_language_country_id INT NULL");
+            }
+            $tbl = mysqli_query($db, "SHOW TABLES LIKE 'event_interpretation_countries'");
+            if (!$tbl || mysqli_num_rows($tbl) === 0) {
+                @mysqli_query($db, "CREATE TABLE event_interpretation_countries (
+                  event_id INT NOT NULL,
+                  country_id INT NOT NULL,
+                  PRIMARY KEY (event_id, country_id),
+                  CONSTRAINT fk_event_interp_event FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE CASCADE,
+                  CONSTRAINT fk_event_interp_country FOREIGN KEY (country_id) REFERENCES countries(id) ON DELETE CASCADE
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+            }
+        } catch (Throwable $e) {
+            return;
         }
     }
 }
 ensureEventMetaSchema($mysqliConn);
+$hasEventLanguageColumn = false;
+$langColCheck = mysqli_query($mysqliConn, "SHOW COLUMNS FROM events LIKE 'event_language_country_id'");
+if ($langColCheck && mysqli_num_rows($langColCheck) > 0) {
+    $hasEventLanguageColumn = true;
+}
+$hasInterpTable = false;
+$interpTblCheck = mysqli_query($mysqliConn, "SHOW TABLES LIKE 'event_interpretation_countries'");
+if ($interpTblCheck && mysqli_num_rows($interpTblCheck) > 0) {
+    $hasInterpTable = true;
+}
 
 $id = isset($_POST['id']) && $_POST['id'] !== '' ? (int)$_POST['id'] : null;
 $title = trim((string)($_POST['title'] ?? ''));
@@ -116,8 +131,13 @@ if ($id) {
     $finalImagePath = $newImagePath ?: $existing['image_path'];
     $finalAttachmentPath = $newAttachmentPath ?: $existing['attachment_path'];
 
-    $stmt = mysqli_prepare($mysqliConn, 'UPDATE events SET country_id = ?, title = ?, description = ?, event_link = ?, image_path = ?, attachment_path = ?, recurrence_type = ?, recur_week = ?, recur_weekday = ?, event_language_country_id = ?, start_at = ?, end_at = ? WHERE id = ?');
-    mysqli_stmt_bind_param($stmt, 'issssssiiissi', $countryIdPrimary, $title, $description, $link, $finalImagePath, $finalAttachmentPath, $recurrenceType, $recurWeek, $recurWeekday, $eventLanguageCountryId, $startAt, $endAt, $id);
+    if ($hasEventLanguageColumn) {
+        $stmt = mysqli_prepare($mysqliConn, 'UPDATE events SET country_id = ?, title = ?, description = ?, event_link = ?, image_path = ?, attachment_path = ?, recurrence_type = ?, recur_week = ?, recur_weekday = ?, event_language_country_id = ?, start_at = ?, end_at = ? WHERE id = ?');
+        mysqli_stmt_bind_param($stmt, 'issssssiiissi', $countryIdPrimary, $title, $description, $link, $finalImagePath, $finalAttachmentPath, $recurrenceType, $recurWeek, $recurWeekday, $eventLanguageCountryId, $startAt, $endAt, $id);
+    } else {
+        $stmt = mysqli_prepare($mysqliConn, 'UPDATE events SET country_id = ?, title = ?, description = ?, event_link = ?, image_path = ?, attachment_path = ?, recurrence_type = ?, recur_week = ?, recur_weekday = ?, start_at = ?, end_at = ? WHERE id = ?');
+        mysqli_stmt_bind_param($stmt, 'issssssiiisi', $countryIdPrimary, $title, $description, $link, $finalImagePath, $finalAttachmentPath, $recurrenceType, $recurWeek, $recurWeekday, $startAt, $endAt, $id);
+    }
     mysqli_stmt_execute($stmt);
     mysqli_stmt_close($stmt);
 
@@ -133,26 +153,33 @@ if ($id) {
     }
     mysqli_stmt_close($iStmt);
 
-    $diStmt = mysqli_prepare($mysqliConn, 'DELETE FROM event_interpretation_countries WHERE event_id = ?');
-    mysqli_stmt_bind_param($diStmt, 'i', $id);
-    mysqli_stmt_execute($diStmt);
-    mysqli_stmt_close($diStmt);
+    if ($hasInterpTable) {
+        $diStmt = mysqli_prepare($mysqliConn, 'DELETE FROM event_interpretation_countries WHERE event_id = ?');
+        mysqli_stmt_bind_param($diStmt, 'i', $id);
+        mysqli_stmt_execute($diStmt);
+        mysqli_stmt_close($diStmt);
 
-    if (!empty($interpretationCountryIds)) {
-        $iiStmt = mysqli_prepare($mysqliConn, 'INSERT INTO event_interpretation_countries (event_id, country_id) VALUES (?, ?)');
-        foreach ($interpretationCountryIds as $cid) {
-            mysqli_stmt_bind_param($iiStmt, 'ii', $id, $cid);
-            mysqli_stmt_execute($iiStmt);
+        if (!empty($interpretationCountryIds)) {
+            $iiStmt = mysqli_prepare($mysqliConn, 'INSERT INTO event_interpretation_countries (event_id, country_id) VALUES (?, ?)');
+            foreach ($interpretationCountryIds as $cid) {
+                mysqli_stmt_bind_param($iiStmt, 'ii', $id, $cid);
+                mysqli_stmt_execute($iiStmt);
+            }
+            mysqli_stmt_close($iiStmt);
         }
-        mysqli_stmt_close($iiStmt);
     }
 
     respond(['success' => true, 'id' => $id]);
 }
 
 $userId = (int)$user['user_id'];
-$stmt = mysqli_prepare($mysqliConn, 'INSERT INTO events (user_id, country_id, title, description, event_link, image_path, attachment_path, recurrence_type, recur_week, recur_weekday, event_language_country_id, start_at, end_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
-mysqli_stmt_bind_param($stmt, 'iissssssiiiss', $userId, $countryIdPrimary, $title, $description, $link, $newImagePath, $newAttachmentPath, $recurrenceType, $recurWeek, $recurWeekday, $eventLanguageCountryId, $startAt, $endAt);
+if ($hasEventLanguageColumn) {
+    $stmt = mysqli_prepare($mysqliConn, 'INSERT INTO events (user_id, country_id, title, description, event_link, image_path, attachment_path, recurrence_type, recur_week, recur_weekday, event_language_country_id, start_at, end_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+    mysqli_stmt_bind_param($stmt, 'iissssssiiiss', $userId, $countryIdPrimary, $title, $description, $link, $newImagePath, $newAttachmentPath, $recurrenceType, $recurWeek, $recurWeekday, $eventLanguageCountryId, $startAt, $endAt);
+} else {
+    $stmt = mysqli_prepare($mysqliConn, 'INSERT INTO events (user_id, country_id, title, description, event_link, image_path, attachment_path, recurrence_type, recur_week, recur_weekday, start_at, end_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+    mysqli_stmt_bind_param($stmt, 'iisssssiiiss', $userId, $countryIdPrimary, $title, $description, $link, $newImagePath, $newAttachmentPath, $recurrenceType, $recurWeek, $recurWeekday, $startAt, $endAt);
+}
 mysqli_stmt_execute($stmt);
 $newId = mysqli_insert_id($mysqliConn);
 mysqli_stmt_close($stmt);
@@ -164,7 +191,7 @@ foreach ($countryIds as $cid) {
 }
 mysqli_stmt_close($iStmt);
 
-if (!empty($interpretationCountryIds)) {
+if ($hasInterpTable && !empty($interpretationCountryIds)) {
     $iiStmt = mysqli_prepare($mysqliConn, 'INSERT INTO event_interpretation_countries (event_id, country_id) VALUES (?, ?)');
     foreach ($interpretationCountryIds as $cid) {
         mysqli_stmt_bind_param($iiStmt, 'ii', $newId, $cid);

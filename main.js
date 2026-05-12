@@ -9,29 +9,30 @@ const state = {
 };
 let pendingOpenEventId = null;
 let langMenuOpen = false;
+let activeViewedEvent = null;
 
 const LANGUAGES = [
-    { code: 'cs', name: 'Czech', flag: '🇨🇿' },
-    { code: 'en', name: 'English', flag: '🇬🇧' },
-    { code: 'fr', name: 'French', flag: '🇫🇷' },
-    { code: 'de', name: 'German', flag: '🇩🇪' },
-    { code: 'hu', name: 'Hungarian', flag: '🇭🇺' },
-    { code: 'it', name: 'Italian', flag: '🇮🇹' },
-    { code: 'ro', name: 'Romanian', flag: '🇷🇴' },
-    { code: 'sk', name: 'Slovak', flag: '🇸🇰' },
-    { code: 'es', name: 'Spanish', flag: '🇪🇸' }
+    { code: 'cs', name: 'Czech', countryIso: 'cz' },
+    { code: 'en', name: 'English', countryIso: 'gb' },
+    { code: 'fr', name: 'French', countryIso: 'fr' },
+    { code: 'de', name: 'German', countryIso: 'de' },
+    { code: 'hu', name: 'Hungarian', countryIso: 'hu' },
+    { code: 'it', name: 'Italian', countryIso: 'it' },
+    { code: 'ro', name: 'Romanian', countryIso: 'ro' },
+    { code: 'sk', name: 'Slovak', countryIso: 'sk' },
+    { code: 'es', name: 'Spanish', countryIso: 'es' }
 ].sort((a, b) => a.name.localeCompare(b.name));
 
 const I18N = {
-    en: { eventCalendar: 'Event Calendar', prev: 'Previous', today: 'Today', next: 'Next', loginSignup: 'Login / Sign up', newEvent: 'New Event' },
-    de: { eventCalendar: 'Ereigniskalender', prev: 'Zurück', today: 'Heute', next: 'Weiter', loginSignup: 'Anmelden / Registrieren', newEvent: 'Neues Ereignis' },
-    it: { eventCalendar: 'Calendario Eventi', prev: 'Precedente', today: 'Oggi', next: 'Successivo', loginSignup: 'Accesso / Registrazione', newEvent: 'Nuovo Evento' },
-    es: { eventCalendar: 'Calendario de Eventos', prev: 'Anterior', today: 'Hoy', next: 'Siguiente', loginSignup: 'Iniciar sesión / Registro', newEvent: 'Nuevo Evento' },
-    fr: { eventCalendar: 'Calendrier des Événements', prev: 'Précédent', today: "Aujourd'hui", next: 'Suivant', loginSignup: 'Connexion / Inscription', newEvent: 'Nouvel Événement' },
-    hu: { eventCalendar: 'Eseménynaptár', prev: 'Előző', today: 'Ma', next: 'Következő', loginSignup: 'Bejelentkezés / Regisztráció', newEvent: 'Új Esemény' },
-    ro: { eventCalendar: 'Calendar Evenimente', prev: 'Anterior', today: 'Astăzi', next: 'Următor', loginSignup: 'Autentificare / Înregistrare', newEvent: 'Eveniment Nou' },
-    sk: { eventCalendar: 'Kalendár Udalostí', prev: 'Predchádzajúci', today: 'Dnes', next: 'Ďalší', loginSignup: 'Prihlásenie / Registrácia', newEvent: 'Nová Udalosť' },
-    cs: { eventCalendar: 'Kalendář Událostí', prev: 'Předchozí', today: 'Dnes', next: 'Další', loginSignup: 'Přihlášení / Registrace', newEvent: 'Nová Událost' }
+    en: { eventCalendar: 'Event Calendar', prev: 'Previous', today: 'Today', next: 'Next', newEvent: 'New Event', share: 'Share', copied: 'Copied', copyFailed: 'Copy failed', eventLanguage: 'Event language', interpretation: 'Interpretation' },
+    de: { eventCalendar: 'Ereigniskalender', prev: 'Zurück', today: 'Heute', next: 'Weiter', newEvent: 'Neues Ereignis', share: 'Teilen', copied: 'Kopiert', copyFailed: 'Fehlgeschlagen', eventLanguage: 'Veranstaltungssprache', interpretation: 'Dolmetschen' },
+    it: { eventCalendar: 'Calendario Eventi', prev: 'Precedente', today: 'Oggi', next: 'Successivo', newEvent: 'Nuovo Evento', share: 'Condividi', copied: 'Copiato', copyFailed: 'Errore copia', eventLanguage: "Lingua dell'evento", interpretation: 'Interpretazione' },
+    es: { eventCalendar: 'Calendario de Eventos', prev: 'Anterior', today: 'Hoy', next: 'Siguiente', newEvent: 'Nuevo Evento', share: 'Compartir', copied: 'Copiado', copyFailed: 'Error al copiar', eventLanguage: 'Idioma del evento', interpretation: 'Interpretación' },
+    fr: { eventCalendar: 'Calendrier des Événements', prev: 'Précédent', today: "Aujourd'hui", next: 'Suivant', newEvent: 'Nouvel Événement', share: 'Partager', copied: 'Copié', copyFailed: 'Échec copie', eventLanguage: "Langue de l'événement", interpretation: 'Interprétation' },
+    hu: { eventCalendar: 'Eseménynaptár', prev: 'Előző', today: 'Ma', next: 'Következő', newEvent: 'Új Esemény', share: 'Megosztás', copied: 'Másolva', copyFailed: 'Sikertelen', eventLanguage: 'Esemény nyelve', interpretation: 'Tolmácsolás' },
+    ro: { eventCalendar: 'Calendar Evenimente', prev: 'Anterior', today: 'Astăzi', next: 'Următor', newEvent: 'Eveniment Nou', share: 'Distribuie', copied: 'Copiat', copyFailed: 'Eroare copiere', eventLanguage: 'Limba evenimentului', interpretation: 'Interpretare' },
+    sk: { eventCalendar: 'Kalendár Udalostí', prev: 'Predchádzajúci', today: 'Dnes', next: 'Ďalší', newEvent: 'Nová Udalosť', share: 'Zdieľať', copied: 'Skopírované', copyFailed: 'Chyba kopírovania', eventLanguage: 'Jazyk udalosti', interpretation: 'Tlmočenie' },
+    cs: { eventCalendar: 'Kalendář Událostí', prev: 'Předchozí', today: 'Dnes', next: 'Další', newEvent: 'Nová Událost', share: 'Sdílet', copied: 'Zkopírováno', copyFailed: 'Chyba kopírování', eventLanguage: 'Jazyk události', interpretation: 'Tlumočení' }
 };
 
 function getLang() {
@@ -117,10 +118,16 @@ function countryFlagHtml(code, cls = '') {
     return `<span class="flag-chip ${cls}">${String(code || '?')}</span>`;
 }
 
+function langFlagImg(iso, alt) {
+    const safeIso = String(iso || '').toLowerCase();
+    const safeAlt = String(alt || '').replace(/"/g, '&quot;');
+    return `<img src="https://flagcdn.com/w40/${safeIso}.png" alt="${safeAlt}">`;
+}
+
 function renderLanguagePicker() {
     const current = LANGUAGES.find((l) => l.code === getLang()) || LANGUAGES.find((l) => l.code === 'en');
-    const menu = langMenuOpen ? `<div class="lang-menu">${LANGUAGES.map((l) => `<button class="lang-item" data-lang="${l.code}" title="${l.name}">${l.flag}</button>`).join('')}</div>` : '';
-    byId('langBlock').innerHTML = `<button id="langToggleBtn" class="lang-toggle" title="Language">${current.flag}</button>${menu}`;
+    const menu = langMenuOpen ? `<div class="lang-menu">${LANGUAGES.map((l) => `<button class="lang-item" data-lang="${l.code}" title="${l.name}">${langFlagImg(l.countryIso, l.name)}</button>`).join('')}</div>` : '';
+    byId('langBlock').innerHTML = `<button id="langToggleBtn" class="lang-toggle" title="Language">${langFlagImg(current.countryIso, current.name)}</button>${menu}`;
     byId('langToggleBtn').onclick = () => {
         langMenuOpen = !langMenuOpen;
         renderLanguagePicker();
@@ -131,6 +138,9 @@ function renderLanguagePicker() {
             langMenuOpen = false;
             applyI18nTexts();
             renderLanguagePicker();
+            if (activeViewedEvent && byId('eventViewDialog').open) {
+                openEventView(activeViewedEvent);
+            }
             await refreshCalendar();
         });
     });
@@ -143,6 +153,13 @@ function applyI18nTexts() {
     byId('todayBtn').textContent = t('today');
     byId('nextBtn').textContent = t('next');
     byId('newEventBtn').textContent = t('newEvent');
+    const shareBtn = byId('shareEventBtn');
+    if (shareBtn) {
+        const txt = shareBtn.textContent.trim();
+        if (txt === '' || Object.values(I18N).some((d) => [d.share, d.copied, d.copyFailed].includes(txt))) {
+            shareBtn.textContent = t('share');
+        }
+    }
 }
 
 function countriesFlagsRow(codes) {
@@ -228,29 +245,48 @@ function updateEventUrl(id) {
 
 function openEventView(eventItem) {
     if (!eventItem) return;
+    activeViewedEvent = eventItem;
     const dlg = byId('eventViewDialog');
     const hero = byId('eventViewHero');
     if (eventItem.image_path) hero.innerHTML = `<img src="${eventItem.image_path}" alt="${eventItem.title || 'Event image'}">`;
     else hero.innerHTML = `<div class="event-view-fallback">${eventItem.title || 'Event'}</div>`;
 
     byId('eventViewTitle').textContent = eventItem.title || 'Event';
+    byId('eventViewCountriesRow').innerHTML = countriesFlagsRow(eventItem.country_codes || []);
+    byId('eventViewCountriesRow').className = 'event-countries-inline';
     byId('eventViewMeta').textContent = formatEventTimeRange(eventItem.start_at, eventItem.end_at);
     byId('eventViewMeta').style.whiteSpace = 'pre-line';
     byId('eventViewDescription').textContent = eventItem.description || '';
     byId('eventViewLinkWrap').innerHTML = eventItem.event_link ? `<a href="${eventItem.event_link}" target="_blank" rel="noopener">${eventItem.event_link}</a>` : '';
 
-    const languageFlag = eventItem.event_language_country_code ? `<div><strong>Event language:</strong> <span class="flag-row">${countryFlagHtml(eventItem.event_language_country_code, 'main-language')}</span></div>` : '';
-    const countriesFlags = `<div><strong>Countries:</strong> ${countriesFlagsRow(eventItem.country_codes || [])}</div>`;
+    const languageFlag = eventItem.event_language_country_code ? `<div><strong>${t('eventLanguage')}:</strong> <span class="flag-row">${countryFlagHtml(eventItem.event_language_country_code, 'main-language')}</span></div>` : '';
     const interpFlags = Array.isArray(eventItem.interpretation_country_codes) && eventItem.interpretation_country_codes.length
-        ? `<div><strong>Interpretation:</strong> ${countriesFlagsRow(eventItem.interpretation_country_codes)}</div>` : '';
-    byId('eventViewQrWrap').innerHTML = `${languageFlag}${countriesFlags}${interpFlags}${eventItem.event_link ? `<img src="https://quickchart.io/qr?size=110&text=${encodeURIComponent(eventItem.event_link)}" alt="QR code to event link">` : ''}`;
+        ? `<div><strong>${t('interpretation')}:</strong> ${countriesFlagsRow(eventItem.interpretation_country_codes)}</div>` : '';
+    byId('eventViewQrWrap').innerHTML = `${languageFlag}${interpFlags}`;
+    const qrImg = byId('eventViewQrImg');
+    if (eventItem.event_link) {
+        qrImg.src = `https://quickchart.io/qr?size=110&text=${encodeURIComponent(eventItem.event_link)}`;
+        qrImg.style.display = 'block';
+    } else {
+        qrImg.style.display = 'none';
+        qrImg.removeAttribute('src');
+    }
     byId('eventViewAuthor').textContent = `by ${eventItem.creator_name || eventItem.username || 'Unknown'}`;
 
     byId('shareEventBtn').onclick = async () => {
+        const btn = byId('shareEventBtn');
         const url = new URL(window.location.href);
         url.searchParams.set('event', String(eventItem.id));
-        await navigator.clipboard.writeText(url.toString());
+        try {
+            await navigator.clipboard.writeText(url.toString());
+            btn.textContent = t('copied');
+            setTimeout(() => { btn.textContent = t('share'); }, 2200);
+        } catch (err) {
+            btn.textContent = t('copyFailed');
+            setTimeout(() => { btn.textContent = t('share'); }, 2200);
+        }
     };
+    byId('shareEventBtn').textContent = t('share');
     updateEventUrl(eventItem.id);
     dlg.showModal();
 }
@@ -435,7 +471,9 @@ byId('todayBtn').addEventListener('click', async () => { state.currentDate = new
 byId('newEventBtn').addEventListener('click', () => openEventDialog());
 byId('cancelEventBtn').addEventListener('click', () => byId('eventDialog').close());
 byId('closeEventViewBtn').addEventListener('click', () => byId('eventViewDialog').close());
+byId('closeEventViewIconBtn').addEventListener('click', () => byId('eventViewDialog').close());
 byId('eventViewDialog').addEventListener('close', () => updateEventUrl(null));
+byId('eventViewDialog').addEventListener('close', () => { activeViewedEvent = null; });
 byId('cancelProfileBtn').addEventListener('click', () => byId('profileDialog').close());
 
 wireDateInput('eventStart', 'eventStartPicker', 'eventStartPickBtn');
@@ -478,7 +516,12 @@ byId('eventForm').addEventListener('submit', async (e) => {
         if (img) form.append('event_image', img);
         const response = await fetch('includes/api/event_save.php', { method: 'POST', body: form });
         const raw = await response.text();
-        const data = raw ? JSON.parse(raw) : {};
+        let data = {};
+        try {
+            data = raw ? JSON.parse(raw) : {};
+        } catch (err) {
+            throw new Error(`Invalid server response (${response.status}): ${raw.slice(0, 220)}`);
+        }
         if (!response.ok || data.success === false) throw new Error(data.message || 'Request failed');
         byId('eventDialog').close();
         await refreshCalendar();

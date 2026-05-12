@@ -15,31 +15,44 @@ function respond(array $payload, int $status = 200): void {
 }
 
 function ensureAppSettingsTable(mysqli $db): void {
-    mysqli_query($db, 'CREATE TABLE IF NOT EXISTS app_settings (
-        setting_key VARCHAR(120) PRIMARY KEY,
-        setting_value TEXT NULL
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
+    // Intentionally no-op: production DB users may not have CREATE privileges.
+    // Schema changes should be applied via migrations, not at request runtime.
 }
 
 function appSettingGet(mysqli $db, string $key, ?string $defaultValue = null): ?string {
-    ensureAppSettingsTable($db);
-    $stmt = mysqli_prepare($db, 'SELECT setting_value FROM app_settings WHERE setting_key = ? LIMIT 1');
-    mysqli_stmt_bind_param($stmt, 's', $key);
-    mysqli_stmt_execute($stmt);
-    $row = stmtFetchOneAssoc($stmt);
-    mysqli_stmt_close($stmt);
-    if (!$row) {
+    try {
+        $check = mysqli_query($db, "SHOW TABLES LIKE 'app_settings'");
+        if (!$check || mysqli_num_rows($check) === 0) {
+            return $defaultValue;
+        }
+        $stmt = mysqli_prepare($db, 'SELECT setting_value FROM app_settings WHERE setting_key = ? LIMIT 1');
+        mysqli_stmt_bind_param($stmt, 's', $key);
+        mysqli_stmt_execute($stmt);
+        $row = stmtFetchOneAssoc($stmt);
+        mysqli_stmt_close($stmt);
+        if (!$row) {
+            return $defaultValue;
+        }
+        return (string)$row['setting_value'];
+    } catch (Throwable $e) {
         return $defaultValue;
     }
-    return (string)$row['setting_value'];
 }
 
 function appSettingSet(mysqli $db, string $key, string $value): void {
-    ensureAppSettingsTable($db);
-    $stmt = mysqli_prepare($db, 'INSERT INTO app_settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)');
-    mysqli_stmt_bind_param($stmt, 'ss', $key, $value);
-    mysqli_stmt_execute($stmt);
-    mysqli_stmt_close($stmt);
+    try {
+        $check = mysqli_query($db, "SHOW TABLES LIKE 'app_settings'");
+        if (!$check || mysqli_num_rows($check) === 0) {
+            return;
+        }
+        $stmt = mysqli_prepare($db, 'INSERT INTO app_settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)');
+        mysqli_stmt_bind_param($stmt, 'ss', $key, $value);
+        mysqli_stmt_execute($stmt);
+        mysqli_stmt_close($stmt);
+    } catch (Throwable $e) {
+        // No-op when DB user lacks permissions; app should remain functional.
+        return;
+    }
 }
 
 function resultFetchAllAssoc($result): array {

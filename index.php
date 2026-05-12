@@ -21,8 +21,10 @@ session_start();
                     <h1 id="appTitle">Event Calendar</h1>
                 </div>
             </div>
-            <div class="auth" id="langBlock"></div>
-            <div class="auth" id="authBlock"></div>
+            <div class="header-right">
+                <div class="auth" id="authBlock"></div>
+                <div class="auth" id="langBlock"></div>
+            </div>
         </header>
 
         <main class="panel">
@@ -101,13 +103,22 @@ session_start();
     <dialog id="eventViewDialog">
         <article class="event-view">
             <button type="button" id="shareEventBtn" class="share-btn" title="Copy direct link">Share</button>
+            <button type="button" id="closeEventViewIconBtn" class="close-icon-btn" title="Close">×</button>
             <div id="eventViewHero" class="event-view-hero"></div>
             <div class="event-view-body">
                 <h3 id="eventViewTitle"></h3>
+                <div id="eventViewCountriesRow"></div>
                 <p id="eventViewMeta" class="event-meta"></p>
                 <p id="eventViewDescription"></p>
-                <p id="eventViewLinkWrap"></p>
-                <div id="eventViewQrWrap"></div>
+                <div class="event-view-main">
+                    <div class="event-view-info">
+                        <p id="eventViewLinkWrap"></p>
+                        <div id="eventViewQrWrap"></div>
+                    </div>
+                    <div class="event-view-qr">
+                        <img id="eventViewQrImg" alt="QR code">
+                    </div>
+                </div>
                 <p id="eventViewAuthor" class="event-author"></p>
                 <div class="dialog-actions">
                     <button type="button" id="closeEventViewBtn">Close</button>

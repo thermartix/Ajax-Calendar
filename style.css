@@ -49,7 +49,7 @@ body {
 .audience-legend { display:flex; gap:12px; align-items:center; margin-top:6px; font-size:0.8rem; color:var(--muted); flex-wrap:wrap; }
 .audience-legend .item { display:inline-flex; align-items:center; gap:6px; }
 .audience-legend .swatch { width:10px; height:10px; border-radius:2px; display:inline-block; }
-.audience-legend .swatch.guests { background:#0b5a56; }
+.audience-legend .swatch.guests { background:#1f9d73; }
 .audience-legend .swatch.consultants { background:#1d5fbf; }
 
 .panel {
@@ -127,12 +127,12 @@ button.danger { background: var(--danger); color: #fff; border-color: var(--dang
     margin-top: 4px;
     font-size: 0.8rem;
     color: #fff;
-    background: #0b5a56;
+    background: #1f9d73;
     cursor: pointer;
 }
 .event-pill.audience-consultants { background: #1d5fbf; }
 .event-card.audience-consultants { border-left: 4px solid #1d5fbf; }
-.event-card.audience-guests { border-left: 4px solid #0b5a56; }
+.event-card.audience-guests { border-left: 4px solid #1f9d73; }
 
 .list-view { display: grid; gap: 10px; }
 .event-card {
@@ -274,7 +274,14 @@ dialog::backdrop { background: rgba(7, 26, 24, 0.55); }
 }
 .flag-chip img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .flag-chip.main-language { width: 30px; height: 22px; }
-.event-countries-inline { margin: 2px 0 8px; }
+.event-countries-inline {
+    margin: 2px 0 8px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+.event-countries-inline .flag-row { margin: 0; }
 .lang-toggle {
     line-height: 1;
     padding: 5px 8px;

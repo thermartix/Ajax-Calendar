@@ -10,6 +10,7 @@ $countryId = isset($data['country_id']) && $data['country_id'] !== '' ? (int)$da
 $datetimeFormat = (string)($data['datetime_format'] ?? '');
 $newPassword = (string)($data['new_password'] ?? '');
 $email = isset($data['email']) ? strtolower(trim((string)$data['email'])) : '';
+$memberId = isset($data['member_id']) ? trim((string)$data['member_id']) : null;
 $stmt = mysqli_prepare($mysqliConn, 'UPDATE users SET first_name = ?, last_name = ?, country_id = ? WHERE user_id = ?');
 mysqli_stmt_bind_param($stmt, 'ssii', $first, $last, $countryId, $uid);
 mysqli_stmt_execute($stmt);
@@ -46,6 +47,9 @@ if ($email !== '' && (string)$user['role'] === 'admin') {
 if ($datetimeFormat !== '') {
     $fmt = $datetimeFormat === 'eu' ? 'eu' : 'us';
     appSettingSet($mysqliConn, 'user_datetime_format_' . $uid, $fmt);
+}
+if ($memberId !== null) {
+    appSettingSet($mysqliConn, 'user_member_id_' . $uid, $memberId);
 }
 respond(['success' => true]);
 ?>

@@ -84,6 +84,8 @@
                     <input id="signupFirst" autocomplete="given-name">
                     <label for="signupLast">Surname</label>
                     <input id="signupLast" autocomplete="family-name">
+                    <label for="signupMemberId">ID</label>
+                    <input id="signupMemberId" autocomplete="off">
                     <label for="signupCountry">Country</label>
                     <select id="signupCountry"></select>
                 </div>

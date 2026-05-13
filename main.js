@@ -324,6 +324,7 @@ function eventLanguageOptions() {
 
 function languageNameByCode(code) {
     const norm = String(code || '').toLowerCase();
+    if (norm === 'gb' || norm === 'uk') return 'English';
     const row = EVENT_LANGUAGE_DEFS.find((d) => d.code === norm);
     return row ? row.name : String(code || '').toUpperCase();
 }
@@ -796,6 +797,7 @@ async function loadSession() {
             byId('profileDialogTitle').textContent = `Profile of ${state.user.email || state.user.username || ''}`;
             byId('profileFirstName').value = state.user.first_name || '';
             byId('profileLastName').value = state.user.last_name || '';
+            byId('profileMemberId').value = state.user.member_id || '';
             byId('profileCountry').value = state.user.country_id ? String(state.user.country_id) : '';
             byId('profileNewPassword').value = '';
             byId('profileNewPassword2').value = '';
@@ -960,6 +962,7 @@ byId('profileForm').addEventListener('submit', async (e) => {
         body: JSON.stringify({
             first_name: byId('profileFirstName').value.trim(),
             last_name: byId('profileLastName').value.trim(),
+            member_id: byId('profileMemberId').value.trim(),
             country_id: byId('profileCountry').value,
             datetime_format: byId('profileDatetimeFormat').value,
             new_password: newPassword

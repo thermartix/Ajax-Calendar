@@ -226,6 +226,10 @@ session_start();
                     <label for="profileLastName">Last Name</label>
                     <input id="profileLastName">
                 </div>
+                <div class="profile-row">
+                    <label for="profileMemberId">ID</label>
+                    <input id="profileMemberId">
+                </div>
                 <div class="profile-row" id="profileCountryRow">
                     <label for="profileCountry">Default Country</label>
                     <select id="profileCountry"></select>

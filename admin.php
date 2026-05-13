@@ -55,6 +55,8 @@
 
                 <article class="event-card">
                     <h3>User Approvals and Permissions</h3>
+                    <label for="usersFilter">Find user</label>
+                    <input id="usersFilter" placeholder="Search by email, ID, name, role...">
                     <div id="usersRoot"></div>
                 </article>
 

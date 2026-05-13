@@ -144,6 +144,7 @@ byId('signupBtn').onclick = async () => {
                 password: byId('signupPassword').value,
                 first_name: byId('signupFirst').value,
                 last_name: byId('signupLast').value,
+                member_id: byId('signupMemberId').value,
                 country_id: byId('signupCountry').value
             })
         });

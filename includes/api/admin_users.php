@@ -17,6 +17,7 @@ foreach ($users as &$u) {
     $u['is_approved'] = (int)$u['is_approved'];
     $u['allowed_country_ids'] = userAllowedCountryIds($mysqliConn, (int)$u['user_id']);
     $u['email'] = appSettingGet($mysqliConn, 'user_email_' . (int)$u['user_id'], $u['username'] ?? '');
+    $u['member_id'] = appSettingGet($mysqliConn, 'user_member_id_' . (int)$u['user_id'], '');
     $u['email_verified'] = appSettingGet($mysqliConn, 'user_email_verified_' . (int)$u['user_id'], '0') === '1' ? 1 : 0;
 }
 

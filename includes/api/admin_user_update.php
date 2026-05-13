@@ -8,6 +8,7 @@ $userId = (int)($data['user_id'] ?? 0);
 $isApproved = isset($data['is_approved']) ? (int)$data['is_approved'] : null;
 $role = isset($data['role']) ? trim((string)$data['role']) : null;
 $email = isset($data['email']) ? trim((string)$data['email']) : null;
+$memberId = isset($data['member_id']) ? trim((string)$data['member_id']) : null;
 $primaryCountry = isset($data['country_id']) && $data['country_id'] !== '' ? (int)$data['country_id'] : null;
 $allowed = isset($data['allowed_country_ids']) && is_array($data['allowed_country_ids']) ? array_map('intval', $data['allowed_country_ids']) : [];
 
@@ -54,6 +55,10 @@ if ($primaryCountry !== null) {
     mysqli_stmt_bind_param($stmt, 'ii', $primaryCountry, $userId);
     mysqli_stmt_execute($stmt);
     mysqli_stmt_close($stmt);
+}
+
+if ($memberId !== null) {
+    appSettingSet($mysqliConn, 'user_member_id_' . $userId, $memberId);
 }
 
 $stmt = mysqli_prepare($mysqliConn, 'DELETE FROM user_country_permissions WHERE user_id = ?');

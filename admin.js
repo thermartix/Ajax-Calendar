@@ -8,6 +8,7 @@ async function api(path, options = {}) {
 
 let countries = [];
 let currentUserId = 0;
+let usersCache = [];
 const timezones = ['Europe/Prague', 'Europe/Madrid', 'Europe/Paris', 'Europe/Rome', 'Europe/Berlin', 'Europe/Vienna', 'Europe/Budapest', 'Europe/Bucharest', 'UTC'];
 
 async function loadCountries() {
@@ -36,10 +37,27 @@ function escHtml(v) {
 
 async function loadUsers() {
     const d = await api('includes/api/admin_users.php');
+    usersCache = d.users.filter((u) => Number(u.user_id) !== Number(currentUserId));
+    renderUsersTable();
+}
+
+function renderUsersTable() {
     const root = byId('usersRoot');
-    const users = d.users.filter((u) => Number(u.user_id) !== Number(currentUserId));
+    const needle = String((byId('usersFilter')?.value || '')).trim().toLowerCase();
+    const users = !needle ? usersCache : usersCache.filter((u) => {
+        const hay = [
+            u.username,
+            u.email,
+            u.member_id,
+            u.first_name,
+            u.last_name,
+            u.role,
+            String(u.user_id)
+        ].join(' ').toLowerCase();
+        return hay.includes(needle);
+    });
     if (!users.length) {
-        root.innerHTML = '<p class="event-meta">No other users found.</p>';
+        root.innerHTML = '<p class="event-meta">No matching users found.</p>';
         return;
     }
     root.innerHTML = `
@@ -48,6 +66,7 @@ async function loadUsers() {
                 <thead>
                     <tr>
                         <th>User</th>
+                        <th>ID</th>
                         <th>E-mail</th>
                         <th>E-mail Confirmed</th>
                         <th>Approved</th>
@@ -61,6 +80,7 @@ async function loadUsers() {
                     ${users.map((u) => `
                         <tr data-user-id="${u.user_id}">
                             <td>${escHtml(u.username)}<br><span class="event-meta">${escHtml((u.first_name || '') + ' ' + (u.last_name || ''))}</span></td>
+                            <td><input id="mid_${u.user_id}" value="${escHtml(u.member_id || '')}"></td>
                             <td><input id="em_${u.user_id}" type="email" value="${escHtml(u.email || u.username || '')}"></td>
                             <td style="text-align:center;">${u.email_verified ? 'Yes' : 'No'}</td>
                             <td style="text-align:center;"><input id="ap_${u.user_id}" type="checkbox" ${u.is_approved ? 'checked' : ''}></td>
@@ -86,6 +106,7 @@ async function loadUsers() {
                 method: 'POST',
                 body: JSON.stringify({
                     user_id: userId,
+                    member_id: document.getElementById(`mid_${userId}`).value,
                     email: document.getElementById(`em_${userId}`).value,
                     is_approved: document.getElementById(`ap_${userId}`).checked ? 1 : 0,
                     role: document.getElementById(`ro_${userId}`).value,
@@ -133,6 +154,7 @@ async function init() {
     await loadCountries();
     if (session.user.role === 'admin') {
         byId('adminOnly').hidden = false;
+        byId('usersFilter').addEventListener('input', () => renderUsersTable());
         await loadUsers();
     }
 }

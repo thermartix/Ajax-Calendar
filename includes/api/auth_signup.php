@@ -6,6 +6,7 @@ $password = (string)($data['password'] ?? '');
 $email = trim((string)($data['email'] ?? ''));
 $firstName = trim((string)($data['first_name'] ?? ''));
 $lastName = trim((string)($data['last_name'] ?? ''));
+$memberId = trim((string)($data['member_id'] ?? ''));
 $countryId = isset($data['country_id']) && $data['country_id'] !== '' ? (int)$data['country_id'] : null;
 
 if ($username === '' || $password === '' || $email === '') {
@@ -42,6 +43,7 @@ $userId = mysqli_insert_id($mysqliConn);
 mysqli_stmt_close($stmt);
 
 appSettingSet($mysqliConn, 'user_email_' . $userId, $email);
+appSettingSet($mysqliConn, 'user_member_id_' . $userId, $memberId);
 $tokenPlain = '';
 try {
     $tokenPlain = bin2hex(random_bytes(24));

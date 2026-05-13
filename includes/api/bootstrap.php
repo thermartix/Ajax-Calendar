@@ -140,7 +140,7 @@ function canEditEvent(array $user, array $event): bool {
     if ($user['role'] === 'admin') {
         return true;
     }
-    if ($user['role'] === 'category_editor') {
+    if ($user['role'] === 'editor' || $user['role'] === 'category_editor') {
         if ((int)$user['country_id'] === (int)$event['country_id']) {
             return true;
         }

@@ -3,6 +3,8 @@ const state = {
     view: 'month',
     countries: [],
     selectedCountry: '',
+    selectedLanguage: '',
+    allEvents: [],
     events: [],
     user: null,
     datetimeFormat: 'eu',
@@ -209,23 +211,27 @@ function renderLanguagePicker() {
 }
 
 function applyI18nTexts() {
+    const setText = (id, value) => {
+        const el = byId(id);
+        if (el) el.textContent = value;
+    };
     document.title = 'Immunotec Zoom and Event calendar';
-    byId('appTitle').textContent = t('eventCalendar');
-    byId('prevBtn').textContent = t('prev');
-    byId('todayBtn').textContent = t('today');
-    byId('nextBtn').textContent = t('next');
-    byId('newEventBtn').textContent = t('newEvent');
-    byId('eventModeLabel').textContent = 'Event type';
-    byId('eventLinkLabel').textContent = t('meetingLink');
-    byId('eventVenueAddressLabel').textContent = t('venueAddress');
-    byId('eventTicketUrlLabel').textContent = t('ticketUrl');
-    byId('eventAudienceTypeLabel').textContent = t('audience');
-    byId('eventAudienceGuestsLabel').textContent = t('customersGuests');
-    byId('eventAudienceConsultantMeetingLabel').textContent = t('consultantsMeeting');
-    byId('eventAudienceConsultantTrainingLabel').textContent = t('consultantsTraining');
-    byId('eventSoldOutLabel').textContent = t('soldOutLabel');
-    byId('eventModeOnlineLabel').textContent = t('onlineEvent');
-    byId('eventModeOfflineLabel').textContent = t('offlineEvent');
+    setText('appTitle', t('eventCalendar'));
+    setText('prevBtn', t('prev'));
+    setText('todayBtn', t('today'));
+    setText('nextBtn', t('next'));
+    setText('newEventBtn', t('newEvent'));
+    setText('eventModeLabel', 'Event type');
+    setText('eventLinkLabel', t('meetingLink'));
+    setText('eventVenueAddressLabel', t('venueAddress'));
+    setText('eventTicketUrlLabel', t('ticketUrl'));
+    setText('eventAudienceTypeLabel', t('audience'));
+    setText('eventAudienceGuestsLabel', t('customersGuests'));
+    setText('eventAudienceConsultantMeetingLabel', t('consultantsMeeting'));
+    setText('eventAudienceConsultantTrainingLabel', t('consultantsTraining'));
+    setText('eventSoldOutSwitchLabel', t('soldOutLabel'));
+    setText('eventModeOnlineLabel', t('onlineEvent'));
+    setText('eventModeOfflineLabel', t('offlineEvent'));
     const legend = byId('audienceLegend');
     if (legend) {
         legend.innerHTML = `<span class="item"><span class="swatch guests"></span>${t('customersGuestsWelcome')}</span><span class="item"><span class="swatch consultants"></span>${t('consultantMeetingTrainingShort')}</span>`;
@@ -238,10 +244,13 @@ function applyI18nTexts() {
         }
     }
     const isEu = state.datetimeFormat === 'eu';
-    byId('eventStart').placeholder = isEu ? 'DD/MM/YYYY HH:MM' : 'MM/DD/YYYY HH:MM AM';
-    byId('eventEnd').placeholder = isEu ? 'DD/MM/YYYY HH:MM' : 'MM/DD/YYYY HH:MM AM';
-    if (byId('eventRecurrenceUntil')) {
-        byId('eventRecurrenceUntil').placeholder = isEu ? 'DD/MM/YYYY HH:MM' : 'MM/DD/YYYY HH:MM AM';
+    const eventStart = byId('eventStart');
+    if (eventStart) eventStart.placeholder = isEu ? 'DD/MM/YYYY HH:MM' : 'MM/DD/YYYY HH:MM AM';
+    const eventEnd = byId('eventEnd');
+    if (eventEnd) eventEnd.placeholder = isEu ? 'DD/MM/YYYY HH:MM' : 'MM/DD/YYYY HH:MM AM';
+    const eventRecurrenceUntil = byId('eventRecurrenceUntil');
+    if (eventRecurrenceUntil) {
+        eventRecurrenceUntil.placeholder = isEu ? 'DD/MM/YYYY HH:MM' : 'MM/DD/YYYY HH:MM AM';
     }
 }
 
@@ -311,6 +320,90 @@ function eventLanguageOptions() {
         if (!c) return null;
         return { id: c.id, code: String(c.code || d.code).toLowerCase(), name: d.name };
     }).filter(Boolean);
+}
+
+function languageNameByCode(code) {
+    const norm = String(code || '').toLowerCase();
+    const row = EVENT_LANGUAGE_DEFS.find((d) => d.code === norm);
+    return row ? row.name : String(code || '').toUpperCase();
+}
+
+function deriveLanguageCodeFromCountryCode(countryCode) {
+    const code = String(countryCode || '').trim().toLowerCase();
+    const explicitMap = {
+        dach: 'de',
+        de: 'de',
+        at: 'de',
+        ch: 'de',
+        fr: 'fr',
+        it: 'it',
+        es: 'es',
+        pt: 'pt',
+        ro: 'ro',
+        hu: 'hu',
+        sk: 'sk',
+        gb: 'en',
+        uk: 'en',
+        us: 'en'
+    };
+    return explicitMap[code] || '';
+}
+
+function eventLanguageCodes(eventItem) {
+    const out = new Set();
+    const main = String(eventItem?.event_language_country_code || '').trim().toLowerCase();
+    if (main) out.add(main);
+    const interp = Array.isArray(eventItem?.interpretation_country_codes) ? eventItem.interpretation_country_codes : [];
+    interp.forEach((c) => {
+        const v = String(c || '').trim().toLowerCase();
+        if (v) out.add(v);
+    });
+    if (!out.size) {
+        const sourceCountries = Array.isArray(eventItem?.country_codes) ? eventItem.country_codes : [];
+        sourceCountries.forEach((cc) => {
+            const derived = deriveLanguageCodeFromCountryCode(cc);
+            if (derived) out.add(derived);
+        });
+    }
+    return out;
+}
+
+function rebuildLanguageFilterOptions() {
+    const filter = byId('languageFilter');
+    if (!filter) return;
+    const selected = state.selectedLanguage || '';
+    const codeSet = new Set();
+    state.allEvents.forEach((e) => {
+        eventLanguageCodes(e).forEach((c) => codeSet.add(c));
+    });
+    const sortedCodes = Array.from(codeSet).sort((a, b) => languageNameByCode(a).localeCompare(languageNameByCode(b)));
+    filter.innerHTML = ['<option value="">All languages</option>', ...sortedCodes.map((c) => `<option value="${c}">${languageNameByCode(c)}</option>`)].join('');
+    filter.value = sortedCodes.includes(selected) ? selected : '';
+    state.selectedLanguage = filter.value || '';
+}
+
+async function loadLanguageFilterOptions() {
+    const filter = byId('languageFilter');
+    if (!filter) return;
+    try {
+        const data = await api('includes/api/event_languages.php');
+        const raw = Array.isArray(data?.codes) ? data.codes : [];
+        const codes = raw.map((c) => String(c || '').toLowerCase()).filter(Boolean);
+        const selected = state.selectedLanguage || '';
+        filter.innerHTML = ['<option value="">All languages</option>', ...codes.sort((a, b) => languageNameByCode(a).localeCompare(languageNameByCode(b))).map((c) => `<option value="${c}">${languageNameByCode(c)}</option>`)].join('');
+        filter.value = codes.includes(selected) ? selected : '';
+        state.selectedLanguage = filter.value || '';
+    } catch (err) {
+        rebuildLanguageFilterOptions();
+    }
+}
+
+function applyClientFilters() {
+    if (!state.selectedLanguage) {
+        state.events = state.allEvents.slice();
+        return;
+    }
+    state.events = state.allEvents.filter((ev) => eventLanguageCodes(ev).has(state.selectedLanguage));
 }
 
 function countriesFlagsRow(codes) {
@@ -421,11 +514,18 @@ function openEventView(eventItem) {
 
     byId('eventViewTitle').textContent = eventDisplayTitle(eventItem);
     const modeBadge = modeAudienceSentence(eventItem);
-    const pastBadge = isPastEvent(eventItem) ? `<span class="event-mode-badge event-past-badge">${t('pastEvent')}</span>` : '';
-    byId('eventViewCountriesRow').innerHTML = `${countriesFlagsRow(eventItem.country_codes || [])}<span class="event-mode-badge">${modeBadge}</span>${pastBadge}`;
+    byId('eventViewCountriesRow').innerHTML = `${countriesFlagsRow(eventItem.country_codes || [])}<span class="event-mode-badge">${modeBadge}</span>`;
     byId('eventViewCountriesRow').className = 'event-countries-inline';
-    byId('eventViewMeta').textContent = formatEventTimeRange(eventItem.start_at, eventItem.end_at);
-    byId('eventViewMeta').style.whiteSpace = 'pre-line';
+    const metaEl = byId('eventViewMeta');
+    metaEl.textContent = formatEventTimeRange(eventItem.start_at, eventItem.end_at);
+    metaEl.style.whiteSpace = 'pre-line';
+    if (isPastEvent(eventItem)) {
+        metaEl.append(' ');
+        const pastSpan = document.createElement('span');
+        pastSpan.className = 'event-past-badge event-past-inline';
+        pastSpan.textContent = t('pastEvent');
+        metaEl.appendChild(pastSpan);
+    }
     byId('eventViewRecurrence').textContent = recurrenceSummary(eventItem);
     byId('eventViewTicketWrap').innerHTML = '';
     byId('eventViewDescription').textContent = eventItem.description || '';
@@ -440,13 +540,20 @@ function openEventView(eventItem) {
     byId('eventViewQrWrap').innerHTML = `${languageText}${interpText}`;
 
     if ((eventItem.event_mode || 'online') === 'offline') {
-        const venueImg = eventItem.venue_image_path ? `<div><img src="${eventItem.venue_image_path}" alt="Venue photo" style="max-width:100%;border-radius:10px;border:1px solid #d7e4e1;"></div>` : '';
-        const venueAddr = eventItem.venue_address ? `<div><strong>${t('venueAddress')}:</strong> ${String(eventItem.venue_address).replace(/\n/g, '<br>')}</div>` : '';
+        const venueParts = String(eventItem.venue_address || '').split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
+        const venueName = venueParts.length ? venueParts[0] : '';
+        const venueAddrLines = venueParts.length > 1 ? venueParts.slice(1) : [];
+        const venueImg = eventItem.venue_image_path
+            ? `<div class="venue-image-col"><img src="${eventItem.venue_image_path}" alt="Venue photo"></div>`
+            : '';
+        const venueAddr = eventItem.venue_address
+            ? `<div class="venue-address-col"><strong>${t('venueAddress')}:</strong>${venueName ? `<div class="venue-name">${venueName}</div>` : ''}${venueAddrLines.length ? `<div>${venueAddrLines.join('<br>')}</div>` : (venueName ? '' : `<div>${String(eventItem.venue_address).replace(/\n/g, '<br>')}</div>`)}</div>`
+            : '';
         if (eventItem.ticket_url) {
             const ticketLabel = isSoldOut(eventItem) ? `${t('soldOutYes')}!` : t('getTicketNow');
             byId('eventViewTicketWrap').innerHTML = `<a href="${eventItem.ticket_url}" target="_blank" rel="noopener" class="ticket-cta"><span class="ticket-icon" aria-hidden="true">&#127915;</span>${ticketLabel}</a>`;
         }
-        byId('eventViewLinkWrap').innerHTML = `${venueImg}${venueAddr}`;
+        byId('eventViewLinkWrap').innerHTML = (venueImg || venueAddr) ? `<div class="venue-layout">${venueImg}${venueAddr}</div>` : '';
     } else {
         byId('eventViewLinkWrap').innerHTML = eventItem.event_link ? `<strong>${t('zoomLink')}:</strong> <a href="${eventItem.event_link}" target="_blank" rel="noopener">${eventItem.event_link}</a>` : '';
     }
@@ -688,6 +795,7 @@ async function loadSession() {
             }
             byId('profileFirstName').value = state.user.first_name || '';
             byId('profileLastName').value = state.user.last_name || '';
+            byId('profileCountry').value = state.user.country_id ? String(state.user.country_id) : '';
             byId('profileDatetimeFormat').value = state.datetimeFormat;
             byId('profileDialog').showModal();
         };
@@ -719,6 +827,8 @@ async function loadCountries() {
     byId('eventLanguageCountry').innerHTML = ['<option value="">Select language</option>', ...languageOpts.map((c) => `<option value="${c.code}" data-country-id="${c.id}">${c.name}</option>`)].join('');
     byId('eventInterpretationCountries').innerHTML = languageOpts.map((c) => `<option value="${c.id}" data-code="${c.code}">${c.name}</option>`).join('');
     byId('signupCountry').innerHTML = state.countries.map((c) => `<option value="${c.id}">${c.name}</option>`).join('');
+    byId('profileCountry').innerHTML = ['<option value="">No default country</option>', ...state.countries.map((c) => `<option value="${c.id}">${c.name}</option>`)].join('');
+    await loadLanguageFilterOptions();
 }
 
 async function loadEvents() {
@@ -730,7 +840,8 @@ async function loadEvents() {
     }
     const params = new URLSearchParams({ start: fmtDate(start), end: fmtDate(end) });
     if (state.selectedCountry) params.set('country_id', state.selectedCountry);
-    state.events = (await api(`includes/api/events_list.php?${params.toString()}`)).events;
+    state.allEvents = (await api(`includes/api/events_list.php?${params.toString()}`)).events;
+    applyClientFilters();
     if (pendingOpenEventId !== null) {
         const match = state.events.find((e) => Number(e.id) === Number(pendingOpenEventId));
         if (match) openEventView(match);
@@ -760,6 +871,7 @@ function wireDateInput(textId, pickerId, btnId) {
 
 byId('viewSelect').addEventListener('change', async (e) => { state.view = e.target.value; await refreshCalendar(); });
 byId('countryFilter').addEventListener('change', async (e) => { state.selectedCountry = e.target.value; await refreshCalendar(); });
+byId('languageFilter').addEventListener('change', async (e) => { state.selectedLanguage = String(e.target.value || '').toLowerCase(); applyClientFilters(); renderView(); });
 byId('prevBtn').addEventListener('click', async () => { stepDate(-1); await refreshCalendar(); });
 byId('nextBtn').addEventListener('click', async () => { stepDate(1); await refreshCalendar(); });
 byId('todayBtn').addEventListener('click', async () => { state.currentDate = new Date(); await refreshCalendar(); });
@@ -834,6 +946,7 @@ byId('profileForm').addEventListener('submit', async (e) => {
         body: JSON.stringify({
             first_name: byId('profileFirstName').value.trim(),
             last_name: byId('profileLastName').value.trim(),
+            country_id: byId('profileCountry').value,
             datetime_format: byId('profileDatetimeFormat').value
         })
     });
@@ -935,28 +1048,11 @@ byId('deleteEventBtn').addEventListener('click', async () => {
 });
 
 byId('loginBtn').addEventListener('click', async () => {
-    try {
-        await api('includes/api/auth_login.php', { method: 'POST', body: JSON.stringify({ username: byId('loginUsername').value, password: byId('loginPassword').value }) });
-        byId('authDialog').close();
-        await bootstrap();
-    } catch (err) { byId('authMessage').textContent = err.message; }
+    window.location.href = 'login/';
 });
 
 byId('signupBtn').addEventListener('click', async () => {
-    try {
-        await api('includes/api/auth_signup.php', {
-            method: 'POST',
-            body: JSON.stringify({
-                username: byId('signupUsername').value,
-                password: byId('signupPassword').value,
-                passwordRepeat: byId('signupPassword2').value,
-                role: byId('signupRole').value,
-                country_id: byId('signupCountry').value
-            })
-        });
-        byId('authDialog').close();
-        await bootstrap();
-    } catch (err) { byId('authMessage').textContent = err.message; }
+    window.location.href = 'login/';
 });
 
 bootstrap().catch((err) => { byId('calendarRoot').innerHTML = `<p>Initialization failed: ${err.message}</p>`; });

@@ -6,6 +6,7 @@ requireAdmin($admin);
 $data = jsonInput();
 $userId = (int)($data['user_id'] ?? 0);
 $isApproved = isset($data['is_approved']) ? (int)$data['is_approved'] : null;
+$role = isset($data['role']) ? trim((string)$data['role']) : null;
 $primaryCountry = isset($data['country_id']) && $data['country_id'] !== '' ? (int)$data['country_id'] : null;
 $allowed = isset($data['allowed_country_ids']) && is_array($data['allowed_country_ids']) ? array_map('intval', $data['allowed_country_ids']) : [];
 
@@ -16,6 +17,13 @@ if ($userId <= 0) {
 if ($isApproved !== null) {
     $stmt = mysqli_prepare($mysqliConn, 'UPDATE users SET is_approved = ? WHERE user_id = ?');
     mysqli_stmt_bind_param($stmt, 'ii', $isApproved, $userId);
+    mysqli_stmt_execute($stmt);
+    mysqli_stmt_close($stmt);
+}
+
+if ($role !== null && in_array($role, ['editor', 'admin', 'category_editor'], true)) {
+    $stmt = mysqli_prepare($mysqliConn, 'UPDATE users SET role = ? WHERE user_id = ?');
+    mysqli_stmt_bind_param($stmt, 'si', $role, $userId);
     mysqli_stmt_execute($stmt);
     mysqli_stmt_close($stmt);
 }

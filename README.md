@@ -3,14 +3,14 @@
 Features:
 - Views: year, month, week, day, list
 - EU date/time formatting (dd/mm/yyyy, 24h)
-- Roles: `admin`, `category_editor`
+- Roles: visitor (not logged in), `editor`, `admin`
 - Admin approval flow for newly registered users
 - Admin user handling: approve users and assign countries
 - Admin-editable countries (upsert)
-- User profile fields: first name, last name
+- User profile fields: first name, last name, default country
 - Events show creator name
 - Event fields: title, description, event link
-- Separate login page: `login.php`
+- Separate login page: `/login/` (password + OTP)
 - User/admin page: `admin.php`
 
 Database:

@@ -217,7 +217,7 @@ if ($recurrenceType === 'monthly_nth_weekday' && !$hasRecurringColumns) {
     ], 500);
 }
 
-if ($user['role'] === 'category_editor') {
+if ($user['role'] === 'editor' || $user['role'] === 'category_editor') {
     $allowed = array_unique(array_merge([(int)$user['country_id']], $user['allowed_country_ids']));
     $missing = array_diff($countryIds, $allowed);
     if (!empty($missing)) {
@@ -276,7 +276,7 @@ if (!is_dir($uploadBase)) {
     @mkdir($uploadBase, 0775, true);
 }
 
-function saveFileUpload(array $file, string $targetDir, string $webDir, array $allowedExts, string $prefix, string $startAt): ?string {
+function saveFileUpload(array $file, string $targetDir, string $webDir, array $allowedExts, string $prefix, string $startAt, ?int $maxWidth = null, ?int $maxHeight = null): ?string {
     if (!isset($file['tmp_name']) || $file['error'] === UPLOAD_ERR_NO_FILE) return null;
     if ($file['error'] !== UPLOAD_ERR_OK) return null;
     if (!is_uploaded_file($file['tmp_name'])) return null;
@@ -294,6 +294,50 @@ function saveFileUpload(array $file, string $targetDir, string $webDir, array $a
         $i += 1;
     }
     $dest = rtrim($targetDir, '/\\') . DIRECTORY_SEPARATOR . $safe;
+    $shouldResize = $maxWidth !== null && $maxHeight !== null && in_array($ext, ['jpg', 'jpeg', 'png', 'webp'], true);
+    if ($shouldResize && function_exists('getimagesize')) {
+        $info = @getimagesize($file['tmp_name']);
+        if (is_array($info) && !empty($info[0]) && !empty($info[1]) && !empty($info[2])) {
+            $srcW = (int)$info[0];
+            $srcH = (int)$info[1];
+            $scale = min(1.0, $maxWidth / $srcW, $maxHeight / $srcH);
+            $dstW = max(1, (int)floor($srcW * $scale));
+            $dstH = max(1, (int)floor($srcH * $scale));
+
+            $srcImg = null;
+            if ($info[2] === IMAGETYPE_JPEG && function_exists('imagecreatefromjpeg')) $srcImg = @imagecreatefromjpeg($file['tmp_name']);
+            if ($info[2] === IMAGETYPE_PNG && function_exists('imagecreatefrompng')) $srcImg = @imagecreatefrompng($file['tmp_name']);
+            if ($info[2] === IMAGETYPE_WEBP && function_exists('imagecreatefromwebp')) $srcImg = @imagecreatefromwebp($file['tmp_name']);
+
+            if ($srcImg) {
+                $outImg = $srcImg;
+                if ($scale < 1.0) {
+                    $outImg = imagecreatetruecolor($dstW, $dstH);
+                    if (!$outImg) {
+                        imagedestroy($srcImg);
+                        return null;
+                    }
+                    if ($info[2] === IMAGETYPE_PNG || $info[2] === IMAGETYPE_WEBP) {
+                        imagealphablending($outImg, false);
+                        imagesavealpha($outImg, true);
+                    }
+                    imagecopyresampled($outImg, $srcImg, 0, 0, 0, 0, $dstW, $dstH, $srcW, $srcH);
+                }
+
+                $written = false;
+                if ($ext === 'jpg' || $ext === 'jpeg') $written = @imagejpeg($outImg, $dest, 82);
+                if ($ext === 'png') $written = @imagepng($outImg, $dest, 6);
+                if ($ext === 'webp' && function_exists('imagewebp')) $written = @imagewebp($outImg, $dest, 80);
+
+                if ($outImg !== $srcImg) imagedestroy($outImg);
+                imagedestroy($srcImg);
+
+                if (!$written) return null;
+                return rtrim($webDir, '/\\') . '/' . $safe;
+            }
+        }
+    }
+
     if (!move_uploaded_file($file['tmp_name'], $dest)) return null;
     return rtrim($webDir, '/\\') . '/' . $safe;
 }
@@ -322,7 +366,7 @@ function executeStmtOrEmojiError(mysqli_stmt $stmt): void {
 
 $newImagePath = isset($_FILES['event_image']) ? saveFileUpload($_FILES['event_image'], $uploadBase, $webBase, ['jpg', 'jpeg', 'png', 'webp'], 'banner', $startAt) : null;
 $newAttachmentPath = isset($_FILES['event_attachment']) ? saveFileUpload($_FILES['event_attachment'], $uploadBase, $webBase, ['pdf'], 'attachment', $startAt) : null;
-$newVenueImagePath = isset($_FILES['venue_image']) ? saveFileUpload($_FILES['venue_image'], $uploadBase, $webBase, ['jpg', 'jpeg', 'png', 'webp'], 'venue', $startAt) : null;
+$newVenueImagePath = isset($_FILES['venue_image']) ? saveFileUpload($_FILES['venue_image'], $uploadBase, $webBase, ['jpg', 'jpeg', 'png', 'webp'], 'venue', $startAt, 1200, 800) : null;
 
 if ($id) {
     $existingSql = 'SELECT id, image_path, attachment_path';

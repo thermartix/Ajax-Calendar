@@ -46,6 +46,9 @@ session_start();
                         <option value="list">List</option>
                     </select>
                     <select id="countryFilter"></select>
+                    <select id="languageFilter">
+                        <option value="">All languages</option>
+                    </select>
                     <button id="newEventBtn" class="accent" hidden>New Event</button>
                 </div>
             </section>
@@ -95,9 +98,9 @@ session_start();
                 <textarea id="eventVenueAddress" rows="3" placeholder="Street, city, ZIP..."></textarea>
                 <label for="eventTicketUrl" id="eventTicketUrlLabel">Ticket URL</label>
                 <input id="eventTicketUrl" type="url" placeholder="https://tickets.example.com/event">
-                <label id="eventSoldOutLabel">Sold Out</label>
                 <label class="switch-row" for="eventSoldOut">
                     <input id="eventSoldOut" type="checkbox" value="1">
+                    <span id="eventSoldOutSwitchLabel">Sold out</span>
                 </label>
                 <label for="eventVenueImage" id="eventVenueImageLabel">Venue Photo</label>
                 <input id="eventVenueImage" type="file" accept=".jpg,.jpeg,.png,.webp">
@@ -199,7 +202,7 @@ session_start();
                 <p id="eventViewDescription"></p>
                 <div class="event-view-main">
                     <div class="event-view-info">
-                        <p id="eventViewLinkWrap"></p>
+                        <div id="eventViewLinkWrap"></div>
                         <div id="eventViewQrWrap"></div>
                     </div>
                     <div class="event-view-qr">
@@ -218,6 +221,8 @@ session_start();
             <input id="profileFirstName">
             <label for="profileLastName">Last Name</label>
             <input id="profileLastName">
+            <label for="profileCountry">Default Country</label>
+            <select id="profileCountry"></select>
             <label for="profileDatetimeFormat">Date/Time Format</label>
             <select id="profileDatetimeFormat">
                 <option value="us">US (MM/DD/YYYY, 12h)</option>
@@ -261,7 +266,7 @@ session_start();
                 <input id="signupPassword2" type="password">
                 <label for="signupRole">Role</label>
                 <select id="signupRole">
-                    <option value="category_editor">Category Editor</option>
+                    <option value="editor">Editor</option>
                     <option value="admin">Admin</option>
                 </select>
                 <label for="signupCountry">Country (for category editor)</label>

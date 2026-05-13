@@ -89,7 +89,8 @@ session_start();
             <label for="eventAudienceType" id="eventAudienceTypeLabel">Audience</label>
             <select id="eventAudienceType">
                 <option value="customers_guests">Customers and guests</option>
-                <option value="consultants">Consultants only</option>
+                <option value="consultant_meeting">Consultant meeting</option>
+                <option value="consultant_training">Consultant training</option>
             </select>
 
             <label for="eventImage">Header Image (1200x420 recommended)</label>

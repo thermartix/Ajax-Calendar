@@ -144,7 +144,7 @@ if ($title === '' || $startAt === '' || $endAt === '') {
 if ($eventMode !== 'online' && $eventMode !== 'offline') {
     $eventMode = 'online';
 }
-if ($audienceType !== 'customers_guests' && $audienceType !== 'consultants') {
+if (!in_array($audienceType, ['customers_guests', 'consultant_meeting', 'consultant_training', 'consultants'], true)) {
     $audienceType = 'customers_guests';
 }
 if ($eventMode === 'offline') {

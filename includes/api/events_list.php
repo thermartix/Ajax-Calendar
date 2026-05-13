@@ -34,6 +34,11 @@ $interpCheck = mysqli_query($mysqliConn, "SHOW TABLES LIKE 'event_interpretation
 if ($interpCheck && mysqli_num_rows($interpCheck) > 0) {
     $hasInterpCountries = true;
 }
+$hasOccurrenceExceptions = false;
+$excCheck = mysqli_query($mysqliConn, "SHOW TABLES LIKE 'event_occurrence_exceptions'");
+if ($excCheck && mysqli_num_rows($excCheck) > 0) {
+    $hasOccurrenceExceptions = true;
+}
 
 $sql = 'SELECT e.id, e.user_id, e.country_id, c.code AS country_code, c.name AS country_name, e.title, e.description, e.event_link, e.image_path, e.attachment_path, ';
 if ($hasRecurringColumns) {
@@ -143,6 +148,22 @@ function nthWeekdayOfMonth(int $year, int $month, int $weekday, int $nth): ?Date
     return $candidate;
 }
 
+function deletedOccurrenceStartSet(mysqli $db, int $eventId, bool $hasOccurrenceExceptions): array {
+    if (!$hasOccurrenceExceptions) {
+        return [];
+    }
+    $stmt = mysqli_prepare($db, 'SELECT occurrence_start_at FROM event_occurrence_exceptions WHERE event_id = ?');
+    mysqli_stmt_bind_param($stmt, 'i', $eventId);
+    mysqli_stmt_execute($stmt);
+    $rows = stmtFetchAllAssoc($stmt);
+    mysqli_stmt_close($stmt);
+    $set = [];
+    foreach ($rows as $r) {
+        $set[(string)$r['occurrence_start_at']] = true;
+    }
+    return $set;
+}
+
 $events = [];
 $rangeStart = $start ? new DateTime($start . ' 00:00:00') : null;
 $rangeEnd = $end ? new DateTime($end . ' 23:59:59') : null;
@@ -192,6 +213,7 @@ foreach ($rows as $ev) {
     $baseStart = new DateTime($ev['start_at']);
     $baseEnd = new DateTime($ev['end_at']);
     $recurrenceUntil = !empty($ev['recurrence_until']) ? new DateTime($ev['recurrence_until']) : null;
+    $deletedStarts = deletedOccurrenceStartSet($mysqliConn, $ev['id'], $hasOccurrenceExceptions);
     $durationSeconds = max(0, $baseEnd->getTimestamp() - $baseStart->getTimestamp());
     $nths = [];
     if (!empty($ev['recur_weeks'])) {
@@ -233,6 +255,9 @@ foreach ($rows as $ev) {
                 }
 
                 if ($occEnd >= $rangeStart && $occStart <= $rangeEnd) {
+                    if (isset($deletedStarts[$occStart->format('Y-m-d H:i:s')])) {
+                        continue;
+                    }
                     $inst = $ev;
                     $inst['start_at'] = $occStart->format('Y-m-d H:i:s');
                     $inst['end_at'] = $occEnd->format('Y-m-d H:i:s');

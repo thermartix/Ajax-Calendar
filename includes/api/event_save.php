@@ -99,7 +99,7 @@ $recurWeeks = is_array($recurWeeksRaw) ? array_values(array_unique(array_map('in
 $recurWeekday = isset($_POST['recur_weekday']) && $_POST['recur_weekday'] !== '' ? (int)$_POST['recur_weekday'] : null;
 $recurrenceUntil = isset($_POST['recurrence_until']) && trim((string)$_POST['recurrence_until']) !== '' ? trim((string)$_POST['recurrence_until']) : null;
 
-if ($title === '' || $countryIdPrimary <= 0 || $startAt === '' || $endAt === '') {
+if ($title === '' || $startAt === '' || $endAt === '') {
     respond(['success' => false, 'message' => 'Missing required fields'], 422);
 }
 if ($link !== '' && !filter_var($link, FILTER_VALIDATE_URL)) {
@@ -217,6 +217,37 @@ if ($id) {
 
     if (!$existing) respond(['success' => false, 'message' => 'Event not found'], 404);
 
+    // Safety: preserve existing countries if an edit submits no valid country ids.
+    // This avoids events disappearing from filtered listings due to an accidental empty payload.
+    if (empty($countryIds) || $countryIdPrimary <= 0) {
+        $existingCountryIds = [];
+        $ecCheck = mysqli_query($mysqliConn, "SHOW TABLES LIKE 'event_countries'");
+        if ($ecCheck && mysqli_num_rows($ecCheck) > 0) {
+            $ecStmt = mysqli_prepare($mysqliConn, 'SELECT country_id FROM event_countries WHERE event_id = ? ORDER BY country_id');
+            mysqli_stmt_bind_param($ecStmt, 'i', $id);
+            mysqli_stmt_execute($ecStmt);
+            foreach (stmtFetchAllAssoc($ecStmt) as $r) {
+                $existingCountryIds[] = (int)$r['country_id'];
+            }
+            mysqli_stmt_close($ecStmt);
+        }
+        if (empty($existingCountryIds)) {
+            $cStmt = mysqli_prepare($mysqliConn, 'SELECT country_id FROM events WHERE id = ? LIMIT 1');
+            mysqli_stmt_bind_param($cStmt, 'i', $id);
+            mysqli_stmt_execute($cStmt);
+            $crow = stmtFetchOneAssoc($cStmt);
+            mysqli_stmt_close($cStmt);
+            if ($crow && (int)$crow['country_id'] > 0) {
+                $existingCountryIds[] = (int)$crow['country_id'];
+            }
+        }
+        $countryIds = array_values(array_unique(array_filter(array_map('intval', $existingCountryIds), function($n) { return $n > 0; })));
+        $countryIdPrimary = (int)($countryIds[0] ?? 0);
+    }
+    if ($countryIdPrimary <= 0) {
+        respond(['success' => false, 'message' => 'Select at least one country'], 422);
+    }
+
     if ($user['role'] !== 'admin') {
       $eStmt = mysqli_prepare($mysqliConn, 'SELECT country_id FROM event_countries WHERE event_id = ?');
       mysqli_stmt_bind_param($eStmt, 'i', $id);
@@ -301,6 +332,10 @@ if ($id) {
     }
 
     respond(['success' => true, 'id' => $id]);
+}
+
+if ($countryIdPrimary <= 0) {
+    respond(['success' => false, 'message' => 'Select at least one country'], 422);
 }
 
 $userId = (int)$user['user_id'];

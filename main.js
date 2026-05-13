@@ -380,6 +380,8 @@ function openEventDialog(eventItem = null, prefillDate = null) {
     if (eventItem && (!state.user || !eventItem.can_edit)) return openEventView(eventItem);
 
     byId('eventDialogTitle').textContent = eventItem ? 'Edit Event' : 'New Event';
+    byId('eventForm').dataset.occurrenceStartAt = eventItem?.start_at || '';
+    byId('eventForm').dataset.recurrenceType = eventItem?.recurrence_type || 'none';
     byId('eventId').value = eventItem ? eventItem.id : '';
     byId('eventTitle').value = eventItem?.title || '';
     byId('eventDescription').value = eventItem?.description || '';
@@ -476,7 +478,11 @@ function renderMonthLike(anchor) {
             pill.addEventListener('click', () => openEventDialog(e));
             cell.appendChild(pill);
         });
-        cell.addEventListener('dblclick', () => openEventDialog(null, d));
+        cell.addEventListener('click', (ev) => {
+            if (!state.user) return;
+            if (ev.target && ev.target.closest && ev.target.closest('.event-pill')) return;
+            openEventDialog(null, d);
+        });
         grid.appendChild(cell);
     });
     root.appendChild(grid);
@@ -668,7 +674,31 @@ byId('eventForm').addEventListener('submit', async (e) => {
 byId('deleteEventBtn').addEventListener('click', async () => {
     const id = Number(byId('eventId').value);
     if (!id) return;
-    await api('includes/api/event_delete.php', { method: 'POST', body: JSON.stringify({ id }) });
+    const currentOccurrenceStartAt = byId('eventForm').dataset.occurrenceStartAt || '';
+    const currentRecurrenceType = byId('eventForm').dataset.recurrenceType || 'none';
+    if (!window.confirm('Are you sure you want to delete this event?')) return;
+
+    let payload = { id, scope: 'series' };
+    const isRecurring = currentRecurrenceType === 'monthly_nth_weekday';
+    if (isRecurring) {
+        const choice = window.prompt('Recurring event delete:\nType "1" to delete only this occurrence.\nType "2" to delete the full series.', '1');
+        if (choice === null) return;
+        const c = String(choice).trim();
+        if (c === '1') {
+            if (!currentOccurrenceStartAt) {
+                showErrorWindow('Could not determine the selected occurrence time.');
+                return;
+            }
+            payload = { id, scope: 'occurrence', occurrence_start_at: currentOccurrenceStartAt };
+        } else if (c === '2') {
+            payload = { id, scope: 'series' };
+        } else {
+            showErrorWindow('Delete cancelled. Please enter 1 (occurrence) or 2 (series).');
+            return;
+        }
+    }
+
+    await api('includes/api/event_delete.php', { method: 'POST', body: JSON.stringify(payload) });
     byId('eventDialog').close();
     await refreshCalendar();
 });

@@ -217,17 +217,44 @@ session_start();
     <dialog id="profileDialog">
         <form id="profileForm" method="dialog">
             <h3>Account Settings</h3>
-            <label for="profileFirstName">First Name</label>
-            <input id="profileFirstName">
-            <label for="profileLastName">Last Name</label>
-            <input id="profileLastName">
-            <label for="profileCountry">Default Country</label>
-            <select id="profileCountry"></select>
-            <label for="profileDatetimeFormat">Date/Time Format</label>
-            <select id="profileDatetimeFormat">
-                <option value="us">US (MM/DD/YYYY, 12h)</option>
-                <option value="eu">European (DD/MM/YYYY, 24h)</option>
-            </select>
+            <div class="profile-grid">
+                <div class="profile-row">
+                    <label for="profileFirstName">First Name</label>
+                    <input id="profileFirstName">
+                </div>
+                <div class="profile-row">
+                    <label for="profileLastName">Last Name</label>
+                    <input id="profileLastName">
+                </div>
+                <div class="profile-row">
+                    <label for="profileEmail">E-mail</label>
+                    <p id="profileEmail" class="profile-text"></p>
+                </div>
+                <div class="profile-row" id="profileCountryRow">
+                    <label for="profileCountry">Default Country</label>
+                    <select id="profileCountry"></select>
+                </div>
+                <div class="profile-row">
+                    <label for="profileDatetimeFormat">Date/Time Format</label>
+                    <select id="profileDatetimeFormat">
+                        <option value="us">US (MM/DD/YYYY, 12h)</option>
+                        <option value="eu">European (DD/MM/YYYY, 24h)</option>
+                    </select>
+                </div>
+            </div>
+            <div class="profile-password-block">
+                <h4>Change Password</h4>
+                <div class="profile-grid">
+                    <div class="profile-row">
+                        <label for="profileNewPassword">New Password</label>
+                        <input id="profileNewPassword" type="password">
+                    </div>
+                    <div class="profile-row">
+                        <label for="profileNewPassword2">Repeat New Password</label>
+                        <input id="profileNewPassword2" type="password">
+                    </div>
+                </div>
+            </div>
             <div class="dialog-actions">
                 <button type="button" id="cancelProfileBtn">Cancel</button>
                 <button type="submit" class="accent">Save</button>

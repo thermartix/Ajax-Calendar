@@ -18,7 +18,7 @@ if (!$row || !password_verify($password, $row['password'])) {
     respond(['success' => false, 'message' => 'Invalid credentials'], 401);
 }
 if ((int)$row['is_approved'] !== 1) {
-    respond(['success' => false, 'message' => 'Account pending admin approval'], 403);
+    respond(['success' => false, 'message' => 'Account is not active yet. Please confirm your email first.'], 403);
 }
 
 $_SESSION['user_id'] = (int)$row['user_id'];

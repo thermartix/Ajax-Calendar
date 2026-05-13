@@ -795,7 +795,13 @@ async function loadSession() {
             }
             byId('profileFirstName').value = state.user.first_name || '';
             byId('profileLastName').value = state.user.last_name || '';
+            byId('profileEmail').textContent = state.user.email || state.user.username || '';
             byId('profileCountry').value = state.user.country_id ? String(state.user.country_id) : '';
+            byId('profileNewPassword').value = '';
+            byId('profileNewPassword2').value = '';
+            const showCountry = state.user.role !== 'visitor';
+            const countryRow = byId('profileCountryRow');
+            if (countryRow) countryRow.style.display = showCountry ? '' : 'none';
             byId('profileDatetimeFormat').value = state.datetimeFormat;
             byId('profileDialog').showModal();
         };
@@ -803,7 +809,7 @@ async function loadSession() {
             await api('includes/api/auth_logout.php', { method: 'POST', body: '{}' });
             await bootstrap();
         };
-        byId('newEventBtn').hidden = false;
+        byId('newEventBtn').hidden = !['admin', 'editor', 'category_editor'].includes(String(state.user.role || ''));
     }
     renderLanguagePicker();
     applyI18nTexts();
@@ -941,13 +947,20 @@ byId('eventRecurrenceType').addEventListener('change', updateRecurrenceVisibilit
 
 byId('profileForm').addEventListener('submit', async (e) => {
     e.preventDefault();
+    const newPassword = byId('profileNewPassword').value;
+    const newPassword2 = byId('profileNewPassword2').value;
+    if (newPassword !== newPassword2) {
+        showErrorWindow('New passwords do not match.');
+        return;
+    }
     await api('includes/api/profile_update.php', {
         method: 'POST',
         body: JSON.stringify({
             first_name: byId('profileFirstName').value.trim(),
             last_name: byId('profileLastName').value.trim(),
             country_id: byId('profileCountry').value,
-            datetime_format: byId('profileDatetimeFormat').value
+            datetime_format: byId('profileDatetimeFormat').value,
+            new_password: newPassword
         })
     });
     byId('profileDialog').close();

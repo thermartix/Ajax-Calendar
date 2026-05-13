@@ -3,28 +3,22 @@ require_once __DIR__ . '/bootstrap.php';
 $data = jsonInput();
 $username = trim((string)($data['username'] ?? ''));
 $password = (string)($data['password'] ?? '');
-$password2 = (string)($data['passwordRepeat'] ?? '');
 $email = trim((string)($data['email'] ?? ''));
 $firstName = trim((string)($data['first_name'] ?? ''));
 $lastName = trim((string)($data['last_name'] ?? ''));
 $countryId = isset($data['country_id']) && $data['country_id'] !== '' ? (int)$data['country_id'] : null;
 
-if ($username === '' || $password === '' || $password2 === '' || $email === '') {
+if ($username === '' || $password === '' || $email === '') {
     respond(['success' => false, 'message' => 'All required fields must be filled'], 422);
-}
-if ($password !== $password2) {
-    respond(['success' => false, 'message' => 'Passwords do not match'], 422);
 }
 if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
     respond(['success' => false, 'message' => 'Valid email is required'], 422);
 }
+if (strtolower($username) !== strtolower($email)) {
+    respond(['success' => false, 'message' => 'Username must match email'], 422);
+}
 
-$res = mysqli_query($mysqliConn, "SELECT COUNT(*) AS c FROM users WHERE role='admin'");
-$adminExists = ((int)mysqli_fetch_assoc($res)['c']) > 0;
-$role = $adminExists ? 'editor' : 'admin';
-$isApproved = $adminExists ? 0 : 1;
-
-if ($role === 'editor' && !$countryId) {
+if (!$countryId) {
     respond(['success' => false, 'message' => 'Country is required'], 422);
 }
 
@@ -39,6 +33,8 @@ if ($existing) {
 mysqli_stmt_close($stmt);
 
 $hash = password_hash($password, PASSWORD_DEFAULT);
+$role = 'visitor';
+$isApproved = 0;
 $stmt = mysqli_prepare($mysqliConn, 'INSERT INTO users (username, password, first_name, last_name, role, country_id, is_approved) VALUES (?, ?, ?, ?, ?, ?, ?)');
 mysqli_stmt_bind_param($stmt, 'sssssii', $username, $hash, $firstName, $lastName, $role, $countryId, $isApproved);
 if (!mysqli_stmt_execute($stmt)) {
@@ -49,15 +45,26 @@ $userId = mysqli_insert_id($mysqliConn);
 mysqli_stmt_close($stmt);
 
 appSettingSet($mysqliConn, 'user_email_' . $userId, $email);
+$tokenPlain = bin2hex(random_bytes(24));
+$tokenHash = hash('sha256', $tokenPlain);
+appSettingSet($mysqliConn, 'user_email_verify_token_' . $userId, $tokenHash);
+appSettingSet($mysqliConn, 'user_email_verify_expires_' . $userId, (string)(time() + 86400));
+appSettingSet($mysqliConn, 'user_email_verified_' . $userId, '0');
 
-if ($isApproved === 1) {
-    $_SESSION['user_id'] = $userId;
-    $_SESSION['username'] = $username;
+$scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+$host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+$confirmUrl = $scheme . '://' . $host . '/includes/api/auth_verify_email.php?uid=' . urlencode((string)$userId) . '&token=' . urlencode($tokenPlain);
+$subject = 'Confirm your account email';
+$body = "Hello,\n\nPlease confirm your account by clicking this link:\n{$confirmUrl}\n\nThis link expires in 24 hours.";
+$headers = 'From: no-reply@localhost' . "\r\n" . 'X-Mailer: PHP/' . phpversion();
+$sent = @mail((string)$email, $subject, $body, $headers);
+if (!$sent) {
+    respond(['success' => false, 'message' => 'Could not send confirmation email from this server.'], 500);
 }
 
 respond([
     'success' => true,
-    'approved' => $isApproved === 1,
-    'message' => $isApproved === 1 ? 'Account created' : 'Registered. Waiting for admin approval and role assignment.'
+    'approved' => false,
+    'message' => 'Signup created. Please confirm your email.'
 ]);
 ?>

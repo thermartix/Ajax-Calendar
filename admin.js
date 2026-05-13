@@ -34,7 +34,7 @@ async function loadUsers() {
         const wrap = document.createElement('div');
         wrap.className = 'event-card';
         wrap.style.marginBottom = '8px';
-        wrap.innerHTML = `<strong>${u.username}</strong> (${(u.first_name || '') + ' ' + (u.last_name || '')})<br><label>Approved <input type="checkbox" id="ap_${u.user_id}" ${u.is_approved ? 'checked' : ''}></label><br><label>Role</label><select id="ro_${u.user_id}">${roleOptions(u.role === 'category_editor' ? 'editor' : u.role)}</select><br><label>Primary country</label><select id="pc_${u.user_id}">${countryOptions(u.country_id)}</select><br><label>Allowed countries (comma IDs)</label><input id="ac_${u.user_id}" value="${(u.allowed_country_ids || []).join(',')}"><br><button id="su_${u.user_id}" class="accent">Save user</button>`;
+        wrap.innerHTML = `<strong>${u.username}</strong> (${(u.first_name || '') + ' ' + (u.last_name || '')})<br><label>E-mail</label><input id="em_${u.user_id}" type="email" value="${String(u.email || u.username || '').replace(/"/g, '&quot;')}"><br><label>Approved <input type="checkbox" id="ap_${u.user_id}" ${u.is_approved ? 'checked' : ''}></label><br><label>Role</label><select id="ro_${u.user_id}">${roleOptions(u.role === 'category_editor' ? 'editor' : u.role)}</select><br><label>Primary country</label><select id="pc_${u.user_id}">${countryOptions(u.country_id)}</select><br><label>Allowed countries (comma IDs)</label><input id="ac_${u.user_id}" value="${(u.allowed_country_ids || []).join(',')}"><br><button id="su_${u.user_id}" class="accent">Save user</button>`;
         root.appendChild(wrap);
         document.getElementById(`su_${u.user_id}`).onclick = async () => {
             const allowed = (document.getElementById(`ac_${u.user_id}`).value || '').split(',').map((s) => Number(s.trim())).filter((n) => n > 0);
@@ -42,6 +42,7 @@ async function loadUsers() {
                 method: 'POST',
                 body: JSON.stringify({
                     user_id: u.user_id,
+                    email: document.getElementById(`em_${u.user_id}`).value,
                     is_approved: document.getElementById(`ap_${u.user_id}`).checked ? 1 : 0,
                     role: document.getElementById(`ro_${u.user_id}`).value,
                     country_id: Number(document.getElementById(`pc_${u.user_id}`).value),
@@ -63,6 +64,9 @@ async function init() {
     currentUserId = Number(session.user.user_id || 0);
     byId('profileFirst').value = session.user.first_name || '';
     byId('profileLast').value = session.user.last_name || '';
+    byId('profileEmail').value = session.user.email || session.user.username || '';
+    byId('profileNewPassword').value = '';
+    byId('profileNewPassword2').value = '';
 
     const settings = await api('includes/api/settings.php');
     byId('timezoneSelect').innerHTML = timezones.map((tz) => `<option value="${tz}" ${settings.calendarTimezone === tz ? 'selected' : ''}>${tz}</option>`).join('');
@@ -76,7 +80,22 @@ async function init() {
 }
 
 byId('saveProfile').onclick = async () => {
-    await api('includes/api/profile_update.php', { method: 'POST', body: JSON.stringify({ first_name: byId('profileFirst').value, last_name: byId('profileLast').value }) });
+    const pw1 = byId('profileNewPassword').value;
+    const pw2 = byId('profileNewPassword2').value;
+    if (pw1 !== pw2) {
+        byId('adminMsg').textContent = 'New passwords do not match';
+        return;
+    }
+    await api('includes/api/profile_update.php', {
+        method: 'POST',
+        body: JSON.stringify({
+            first_name: byId('profileFirst').value,
+            last_name: byId('profileLast').value,
+            new_password: pw1
+        })
+    });
+    byId('profileNewPassword').value = '';
+    byId('profileNewPassword2').value = '';
     byId('adminMsg').textContent = 'Profile saved';
 };
 byId('saveTimezone').onclick = async () => {

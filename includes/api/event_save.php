@@ -5,6 +5,9 @@ $user = currentUser($mysqliConn);
 if ((int)$user['is_approved'] !== 1) {
     respond(['success' => false, 'message' => 'Account pending approval'], 403);
 }
+if (!in_array((string)$user['role'], ['admin', 'editor', 'category_editor'], true)) {
+    respond(['success' => false, 'message' => 'Your role cannot create or edit events'], 403);
+}
 $user['allowed_country_ids'] = userAllowedCountryIds($mysqliConn, (int)$user['user_id']);
 if (!function_exists('ensureEventMetaSchema')) {
     function ensureEventMetaSchema(mysqli $db): void {

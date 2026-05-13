@@ -17,7 +17,7 @@ if (!$row) {
     respond(['success' => false, 'message' => 'User not found'], 404);
 }
 if ((int)$row['is_approved'] !== 1) {
-    respond(['success' => false, 'message' => 'Account pending admin approval'], 403);
+    respond(['success' => false, 'message' => 'Account is not active yet. Please confirm your email first.'], 403);
 }
 
 $email = appSettingGet($mysqliConn, 'user_email_' . (int)$row['user_id'], '');

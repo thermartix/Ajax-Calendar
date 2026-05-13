@@ -28,6 +28,12 @@
                 <input id="profileFirst">
                 <label for="profileLast">Last Name</label>
                 <input id="profileLast">
+                <label for="profileEmail">E-mail</label>
+                <input id="profileEmail" readonly>
+                <label for="profileNewPassword">New Password</label>
+                <input id="profileNewPassword" type="password">
+                <label for="profileNewPassword2">Repeat New Password</label>
+                <input id="profileNewPassword2" type="password">
                 <div class="dialog-actions">
                     <button id="saveProfile" class="accent">Save Profile</button>
                 </div>

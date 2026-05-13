@@ -257,6 +257,18 @@ if (($venueAddress !== '' || (isset($_FILES['venue_image']) && (int)($_FILES['ve
         'message' => 'Offline venue details are not available because required events venue columns are missing and DB permissions prevented auto-migration.'
     ], 500);
 }
+if ($eventMode === 'offline' && $ticketUrl !== '' && !$hasTicketUrlColumn) {
+    respond([
+        'success' => false,
+        'message' => 'Ticket URL is not available because events.ticket_url is missing and DB permissions prevented auto-migration.'
+    ], 500);
+}
+if ($soldOut === 1 && !$hasSoldOutColumn) {
+    respond([
+        'success' => false,
+        'message' => 'Sold out status is not available because events.sold_out is missing and DB permissions prevented auto-migration.'
+    ], 500);
+}
 
 $uploadBase = __DIR__ . '/../../assets/uploads';
 $webBase = 'assets/uploads';

@@ -91,6 +91,13 @@ button, select, input, textarea {
     color:#45615d;
     vertical-align:middle;
 }
+.event-past-badge {
+    background: #eef2f8;
+    border: 1px solid #c9d4e6;
+    color: #4a5973;
+    border-radius: 999px;
+    padding: 2px 8px;
+}
 
 button { cursor: pointer; }
 button.accent { background: var(--accent); color: #fff; border-color: var(--accent); }
@@ -178,6 +185,48 @@ dialog::backdrop { background: rgba(7, 26, 24, 0.55); }
     padding: 6px 10px;
     font-size: 0.85rem;
     line-height: 1.1;
+}
+.option-group {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+.description-mode-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+.description-mode-head > label { margin: 0; }
+.event-mode-inline {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+.event-mode-inline > label { margin: 0; white-space: nowrap; }
+.option-group-wrap { row-gap: 8px; }
+.option-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    border: 1px solid #c7d8d3;
+    border-radius: 999px;
+    background: #f7fbfa;
+    cursor: pointer;
+    font-size: 0.9rem;
+}
+.option-chip input[type="radio"] { margin: 0; }
+.switch-row {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 2px;
+    font-size: 0.9rem;
+}
+.switch-row input[type="checkbox"] {
+    width: 36px;
+    height: 20px;
 }
 .event-form-image-preview {
     width: 100%;
@@ -277,8 +326,9 @@ dialog::backdrop { background: rgba(7, 26, 24, 0.55); }
 }
 .hero-overlay-soldout {
     position: absolute;
-    right: 14px;
-    top: 14px;
+    left: 75%;
+    top: 50%;
+    transform: translate(-50%, -50%);
     background: rgba(190, 22, 22, 0.95);
     color: #fff;
     padding: 7px 11px;
@@ -376,4 +426,11 @@ dialog::backdrop { background: rgba(7, 26, 24, 0.55); }
     .calendar-grid { grid-template-columns: repeat(2, 1fr); }
     .event-view-main { grid-template-columns: 1fr; }
     .event-view-qr { justify-content: flex-start; }
+    .description-mode-head {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    .event-mode-inline {
+        flex-wrap: wrap;
+    }
 }

@@ -67,15 +67,23 @@ session_start();
             <label for="eventTitle">Title</label>
             <input id="eventTitle" required maxlength="180">
 
-            <label for="eventDescription">Description</label>
+            <div class="description-mode-head">
+                <label for="eventDescription">Description</label>
+                <div class="event-mode-inline">
+                    <label id="eventModeLabel">Event type</label>
+                    <div class="option-group" role="radiogroup" aria-labelledby="eventModeLabel">
+                        <label class="option-chip" for="eventModeOnline">
+                            <input id="eventModeOnline" type="radio" name="eventMode" value="online" checked>
+                            <span id="eventModeOnlineLabel">Online</span>
+                        </label>
+                        <label class="option-chip" for="eventModeOffline">
+                            <input id="eventModeOffline" type="radio" name="eventMode" value="offline">
+                            <span id="eventModeOfflineLabel">Offline</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
             <textarea id="eventDescription" rows="4" placeholder="Agenda, notes, speakers..."></textarea>
-
-            <label for="eventMode" id="eventModeLabel">Event Mode</label>
-            <select id="eventMode">
-                <option value="">Select mode</option>
-                <option value="online">Online</option>
-                <option value="offline">Offline</option>
-            </select>
 
             <div id="eventOnlineWrap">
                 <label for="eventLinkOnline" id="eventLinkLabel">Meeting Link</label>
@@ -87,23 +95,30 @@ session_start();
                 <textarea id="eventVenueAddress" rows="3" placeholder="Street, city, ZIP..."></textarea>
                 <label for="eventTicketUrl" id="eventTicketUrlLabel">Ticket URL</label>
                 <input id="eventTicketUrl" type="url" placeholder="https://tickets.example.com/event">
+                <label id="eventSoldOutLabel">Sold Out</label>
+                <label class="switch-row" for="eventSoldOut">
+                    <input id="eventSoldOut" type="checkbox" value="1">
+                </label>
                 <label for="eventVenueImage" id="eventVenueImageLabel">Venue Photo</label>
                 <input id="eventVenueImage" type="file" accept=".jpg,.jpeg,.png,.webp">
                 <div id="eventVenueImagePreview" class="event-form-image-preview"></div>
             </div>
 
-            <label for="eventAudienceType" id="eventAudienceTypeLabel">Audience</label>
-            <select id="eventAudienceType">
-                <option value="customers_guests">Customers and guests</option>
-                <option value="consultant_meeting">Consultant meeting</option>
-                <option value="consultant_training">Consultant training</option>
-            </select>
-            <label for="eventSoldOut" id="eventSoldOutLabel">Sold Out</label>
-            <select id="eventSoldOut">
-                <option value="0">Available</option>
-                <option value="1">Sold out</option>
-            </select>
-
+            <label id="eventAudienceTypeLabel">Audience</label>
+            <div class="option-group option-group-wrap" role="radiogroup" aria-labelledby="eventAudienceTypeLabel">
+                <label class="option-chip" for="eventAudienceGuests">
+                    <input id="eventAudienceGuests" type="radio" name="eventAudienceType" value="customers_guests" checked>
+                    <span id="eventAudienceGuestsLabel">Customers and guests</span>
+                </label>
+                <label class="option-chip" for="eventAudienceConsultantMeeting">
+                    <input id="eventAudienceConsultantMeeting" type="radio" name="eventAudienceType" value="consultant_meeting">
+                    <span id="eventAudienceConsultantMeetingLabel">Consultant meeting</span>
+                </label>
+                <label class="option-chip" for="eventAudienceConsultantTraining">
+                    <input id="eventAudienceConsultantTraining" type="radio" name="eventAudienceType" value="consultant_training">
+                    <span id="eventAudienceConsultantTrainingLabel">Consultant training</span>
+                </label>
+            </div>
             <label for="eventImage">Header Image (1200x420 recommended)</label>
             <input id="eventImage" type="file" accept=".jpg,.jpeg,.png,.webp">
 

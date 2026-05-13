@@ -269,6 +269,12 @@ function modeAudienceSentence(eventItem) {
     return t('inPersonEventForGuestsCustomers');
 }
 
+function heroOverlayText(eventItem) {
+    if (eventItem?.audience_type === 'consultant_training') return t('consultantsTraining');
+    if (eventItem?.audience_type === 'consultant_meeting' || eventItem?.audience_type === 'consultants') return t('consultantsMeeting');
+    return t('guestsCustomersOverlay');
+}
+
 function eventLanguageOptions() {
     const byCode = new Map(state.countries.map((c) => [String(c.code || '').toLowerCase(), c]));
     return EVENT_LANGUAGE_DEFS.map((d) => {
@@ -367,8 +373,8 @@ function openEventView(eventItem) {
     activeViewedEvent = eventItem;
     const dlg = byId('eventViewDialog');
     const hero = byId('eventViewHero');
-    const showGuestOverlay = !isConsultantsOnly(eventItem);
-    if (eventItem.image_path) hero.innerHTML = `<img src="${eventItem.image_path}" alt="${eventItem.title || 'Event image'}">${showGuestOverlay ? `<div class="hero-overlay-note">${t('guestsCustomersOverlay')}</div>` : ''}`;
+    const overlayText = heroOverlayText(eventItem);
+    if (eventItem.image_path) hero.innerHTML = `<img src="${eventItem.image_path}" alt="${eventItem.title || 'Event image'}"><div class="hero-overlay-note">${overlayText}</div>`;
     else hero.innerHTML = `<div class="event-view-fallback">${eventItem.title || 'Event'}</div>`;
 
     byId('eventViewTitle').textContent = eventDisplayTitle(eventItem);
@@ -481,6 +487,7 @@ function openEventDialog(eventItem = null, prefillDate = null) {
     byId('eventDialogTitle').textContent = eventItem ? 'Edit Event' : 'New Event';
     byId('eventForm').dataset.occurrenceStartAt = eventItem?.start_at || '';
     byId('eventForm').dataset.recurrenceType = eventItem?.recurrence_type || 'none';
+    byId('copyFromId').value = '';
     byId('eventId').value = eventItem ? eventItem.id : '';
     byId('eventTitle').value = eventItem?.title || '';
     byId('eventDescription').value = eventItem?.description || '';
@@ -534,6 +541,7 @@ function openEventDialog(eventItem = null, prefillDate = null) {
     }
 
     byId('deleteEventBtn').hidden = !(eventItem && eventItem.can_edit);
+    byId('copyEventBtn').hidden = !(eventItem && eventItem.can_edit);
     updateEventModeVisibility();
     updateRecurrenceVisibility();
     byId('eventDialog').showModal();
@@ -620,6 +628,10 @@ async function loadSession() {
     } else {
         auth.innerHTML = `<button id="openProfileBtn"><strong>${state.user.username}</strong> (${state.user.role})</button> <button id="logoutBtn">Logout</button>`;
         byId('openProfileBtn').onclick = () => {
+            if (state.user.role === 'admin') {
+                window.location.href = 'admin.php';
+                return;
+            }
             byId('profileFirstName').value = state.user.first_name || '';
             byId('profileLastName').value = state.user.last_name || '';
             byId('profileDatetimeFormat').value = state.datetimeFormat;
@@ -699,6 +711,32 @@ byId('nextBtn').addEventListener('click', async () => { stepDate(1); await refre
 byId('todayBtn').addEventListener('click', async () => { state.currentDate = new Date(); await refreshCalendar(); });
 byId('newEventBtn').addEventListener('click', () => openEventDialog());
 byId('cancelEventBtn').addEventListener('click', () => byId('eventDialog').close());
+byId('copyEventBtn').addEventListener('click', () => {
+    const sourceId = Number(byId('eventId').value || 0);
+    if (!sourceId) return;
+    const startDate = parseDateInput(byId('eventStart').value);
+    const endDate = parseDateInput(byId('eventEnd').value);
+    if (!startDate || !endDate) {
+        showErrorWindow('Current event start/end must be valid before copying.');
+        return;
+    }
+    const durationMs = Math.max(0, endDate.getTime() - startDate.getTime());
+    const example = state.datetimeFormat === 'eu' ? 'DD/MM/YYYY HH:MM' : 'MM/DD/YYYY HH:MM AM';
+    const input = window.prompt(`New event start date/time (${example}):`, byId('eventStart').value);
+    if (input === null) return;
+    const newStart = parseDateInput(input);
+    if (!newStart) {
+        showErrorWindow('Invalid date/time format for copy.');
+        return;
+    }
+    const newEnd = new Date(newStart.getTime() + durationMs);
+    fillDateField('eventStart', 'eventStartPicker', newStart);
+    fillDateField('eventEnd', 'eventEndPicker', newEnd);
+    byId('copyFromId').value = String(sourceId);
+    byId('eventId').value = '';
+    byId('eventDialogTitle').textContent = 'Copy Event';
+    byId('deleteEventBtn').hidden = true;
+});
 byId('eventImage').addEventListener('change', () => {
     const file = byId('eventImage').files[0];
     if (!file) return;
@@ -763,6 +801,7 @@ byId('eventForm').addEventListener('submit', async (e) => {
         const recurWeeks = Array.from(byId('eventRecurWeek').selectedOptions).map((o) => Number(o.value)).filter((n) => n >= 1 && n <= 5);
         const form = new FormData();
         if (byId('eventId').value) form.append('id', byId('eventId').value);
+        if (byId('copyFromId').value) form.append('copy_from_id', byId('copyFromId').value);
         form.append('title', byId('eventTitle').value.trim());
         form.append('description', byId('eventDescription').value.trim());
         const mode = byId('eventMode').value.trim();

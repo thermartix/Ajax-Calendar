@@ -345,7 +345,7 @@ function updateRangeLabel() {
         const dd = String(end.getDate()).padStart(2, '0');
         const mm = String(end.getMonth() + 1).padStart(2, '0');
         const yyyy = end.getFullYear();
-        byId('rangeLabel').textContent = `${monthName} ${year} - 01.-${dd}.${mm}.${yyyy}`;
+        byId('rangeLabel').textContent = `${monthName} ${year}  |  01.-${dd}.${mm}.${yyyy}`;
         return;
     }
     byId('rangeLabel').textContent = `${formatDateTimeByPreference(start).split(' ')[0]} - ${formatDateTimeByPreference(end).split(' ')[0]}`;

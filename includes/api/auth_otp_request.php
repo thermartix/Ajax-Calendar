@@ -40,7 +40,7 @@ $_SESSION['otp_login'] = [
 
 $subject = 'Your one-time login code';
 $body = "Your login code is: {$code}\n\nThis code expires in 10 minutes.";
-$headers = 'From: no-reply@localhost' . "\r\n" . 'X-Mailer: PHP/' . phpversion();
+$headers = 'From: no-reply@immeet.ing' . "\r\n" . 'Reply-To: no-reply@immeet.ing' . "\r\n" . 'X-Mailer: PHP/' . phpversion();
 $sent = @mail((string)$email, $subject, $body, $headers);
 if (!$sent) {
     unset($_SESSION['otp_login']);

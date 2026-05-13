@@ -3,7 +3,7 @@
 Features:
 - Views: year, month, week, day, list
 - EU date/time formatting (dd/mm/yyyy, 24h)
-- Roles: visitor (not logged in), `editor`, `admin`
+- Roles: visitor (not logged in / registered visitor), `editor`, `admin`
 - Admin approval flow for newly registered users
 - Admin user handling: approve users and assign countries
 - Admin-editable countries (upsert)

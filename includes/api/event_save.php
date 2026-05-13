@@ -220,13 +220,6 @@ if ($recurrenceType === 'monthly_nth_weekday' && !$hasRecurringColumns) {
     ], 500);
 }
 
-if ($user['role'] === 'editor' || $user['role'] === 'category_editor') {
-    $allowed = array_unique(array_merge([(int)$user['country_id']], $user['allowed_country_ids']));
-    $missing = array_diff($countryIds, $allowed);
-    if (!empty($missing)) {
-        respond(['success' => false, 'message' => 'Not allowed outside your categories'], 403);
-    }
-}
 if ($eventLanguageCountryId !== null && $eventLanguageCountryId <= 0) {
     $eventLanguageCountryId = null;
 }
@@ -372,7 +365,7 @@ $newAttachmentPath = isset($_FILES['event_attachment']) ? saveFileUpload($_FILES
 $newVenueImagePath = isset($_FILES['venue_image']) ? saveFileUpload($_FILES['venue_image'], $uploadBase, $webBase, ['jpg', 'jpeg', 'png', 'webp'], 'venue', $startAt, 1200, 800) : null;
 
 if ($id) {
-    $existingSql = 'SELECT id, image_path, attachment_path';
+    $existingSql = 'SELECT id, user_id, country_id, image_path, attachment_path';
     if ($hasVenueImagePathColumn) {
         $existingSql .= ', venue_image_path';
     }
@@ -423,9 +416,9 @@ if ($id) {
       $evCountries = [];
       foreach (stmtFetchAllAssoc($eStmt) as $r) $evCountries[] = (int)$r['country_id'];
       mysqli_stmt_close($eStmt);
-      $allowed = array_unique(array_merge([(int)$user['country_id']], $user['allowed_country_ids']));
-      $missingCurrent = array_diff($evCountries, $allowed);
-      if (!empty($missingCurrent)) respond(['success' => false, 'message' => 'Not allowed to edit this event'], 403);
+      if (!canEditEvent($user, ['user_id' => (int)$existing['user_id'], 'country_id' => (int)$existing['country_id'], 'country_ids' => $evCountries])) {
+          respond(['success' => false, 'message' => 'Not allowed to edit this event'], 403);
+      }
     }
 
     $finalImagePath = $newImagePath ?: $existing['image_path'];
@@ -556,7 +549,7 @@ $copiedImagePath = null;
 $copiedAttachmentPath = null;
 $copiedVenueImagePath = null;
 if (!$id && $copyFromId && $copyFromId > 0) {
-    $srcSql = 'SELECT id, image_path, attachment_path';
+    $srcSql = 'SELECT id, user_id, country_id, image_path, attachment_path';
     if ($hasVenueImagePathColumn) {
         $srcSql .= ', venue_image_path';
     }
@@ -576,9 +569,9 @@ if (!$id && $copyFromId && $copyFromId > 0) {
         $srcCountries = [];
         foreach (stmtFetchAllAssoc($csStmt) as $r) $srcCountries[] = (int)$r['country_id'];
         mysqli_stmt_close($csStmt);
-        $allowed = array_unique(array_merge([(int)$user['country_id']], $user['allowed_country_ids']));
-        $missingSrc = array_diff($srcCountries, $allowed);
-        if (!empty($missingSrc)) respond(['success' => false, 'message' => 'Not allowed to copy this event'], 403);
+        if (!canEditEvent($user, ['user_id' => (int)$src['user_id'], 'country_id' => (int)($srcCountries[0] ?? 0), 'country_ids' => $srcCountries])) {
+            respond(['success' => false, 'message' => 'Not allowed to copy this event'], 403);
+        }
     }
     $copiedImagePath = $src['image_path'] ?? null;
     $copiedAttachmentPath = $src['attachment_path'] ?? null;

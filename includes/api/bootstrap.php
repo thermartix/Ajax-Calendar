@@ -141,11 +141,18 @@ function canEditEvent(array $user, array $event): bool {
         return true;
     }
     if ($user['role'] === 'editor' || $user['role'] === 'category_editor') {
-        if ((int)$user['country_id'] === (int)$event['country_id']) {
+        if (isset($event['user_id']) && (int)$event['user_id'] === (int)$user['user_id']) {
             return true;
         }
-        if (!empty($user['allowed_country_ids'])) {
-            return in_array((int)$event['country_id'], $user['allowed_country_ids'], true);
+        $ownCountry = (int)($user['country_id'] ?? 0);
+        if ($ownCountry <= 0) {
+            return false;
+        }
+        if (!empty($event['country_ids']) && is_array($event['country_ids'])) {
+            return in_array($ownCountry, array_map('intval', $event['country_ids']), true);
+        }
+        if (isset($event['country_id'])) {
+            return (int)$event['country_id'] === $ownCountry;
         }
     }
     return false;

@@ -41,7 +41,7 @@ if ($scope !== 'series' && $scope !== 'occurrence') {
     respond(['success' => false, 'message' => 'Invalid delete scope'], 422);
 }
 
-$sql = 'SELECT id, country_id';
+$sql = 'SELECT id, user_id, country_id';
 if ($hasRecurringColumns) {
     $sql .= ', recurrence_type';
 }
@@ -55,7 +55,7 @@ mysqli_stmt_close($stmt);
 if (!$existing) {
     respond(['success' => false, 'message' => 'Event not found'], 404);
 }
-if (!canEditEvent($user, ['country_id' => (int)$existing['country_id']])) {
+if (!canEditEvent($user, ['user_id' => (int)$existing['user_id'], 'country_id' => (int)$existing['country_id']])) {
     respond(['success' => false, 'message' => 'Not allowed to delete this event'], 403);
 }
 

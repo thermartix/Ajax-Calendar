@@ -809,7 +809,9 @@ async function loadSession() {
             await api('includes/api/auth_logout.php', { method: 'POST', body: '{}' });
             await bootstrap();
         };
-        byId('newEventBtn').hidden = !['admin', 'editor', 'category_editor'].includes(String(state.user.role || ''));
+        const role = String(state.user.role || '');
+        const canOpenEditor = role === 'admin' || role === 'editor' || (role === 'category_editor' && Number(state.user.country_id || 0) > 0);
+        byId('newEventBtn').hidden = !canOpenEditor;
     }
     renderLanguagePicker();
     applyI18nTexts();

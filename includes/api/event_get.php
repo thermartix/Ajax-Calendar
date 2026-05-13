@@ -185,13 +185,7 @@ if ($event['creator_name'] === '') {
 $event['can_edit'] = false;
 $user = currentUser($mysqliConn);
 if ($user) {
-    if ($user['role'] === 'admin') {
-        $event['can_edit'] = true;
-    } else {
-        $allowed = array_unique(array_merge([(int)$user['country_id']], userAllowedCountryIds($mysqliConn, (int)$user['user_id'])));
-        $missing = array_diff($event['country_ids'], $allowed);
-        $event['can_edit'] = count($missing) === 0;
-    }
+    $event['can_edit'] = canEditEvent($user, ['user_id' => (int)$event['user_id'], 'country_id' => (int)$event['country_id'], 'country_ids' => $event['country_ids']]);
 }
 
 respond(['success' => true, 'event' => $event]);

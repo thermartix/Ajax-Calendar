@@ -22,7 +22,7 @@ if ($isApproved !== null) {
     mysqli_stmt_close($stmt);
 }
 
-if ($role !== null && in_array($role, ['editor', 'admin', 'category_editor'], true)) {
+if ($role !== null && in_array($role, ['visitor', 'editor', 'admin', 'category_editor'], true)) {
     $stmt = mysqli_prepare($mysqliConn, 'UPDATE users SET role = ? WHERE user_id = ?');
     mysqli_stmt_bind_param($stmt, 'si', $role, $userId);
     mysqli_stmt_execute($stmt);

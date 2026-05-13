@@ -21,37 +21,93 @@ function countryOptions(selected) {
 }
 
 function roleOptions(selected) {
-    const roles = ['editor', 'admin'];
+    const roles = ['visitor', 'editor', 'admin'];
     return roles.map((r) => `<option value="${r}" ${String(selected) === r ? 'selected' : ''}>${r}</option>`).join('');
+}
+
+function escHtml(v) {
+    return String(v ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
 }
 
 async function loadUsers() {
     const d = await api('includes/api/admin_users.php');
     const root = byId('usersRoot');
-    root.innerHTML = '';
-    d.users.forEach((u) => {
-        if (Number(u.user_id) === Number(currentUserId)) return;
-        const wrap = document.createElement('div');
-        wrap.className = 'event-card';
-        wrap.style.marginBottom = '8px';
-        wrap.innerHTML = `<strong>${u.username}</strong> (${(u.first_name || '') + ' ' + (u.last_name || '')})<br><label>E-mail</label><input id="em_${u.user_id}" type="email" value="${String(u.email || u.username || '').replace(/"/g, '&quot;')}"><br><label>Approved <input type="checkbox" id="ap_${u.user_id}" ${u.is_approved ? 'checked' : ''}></label><br><label>Role</label><select id="ro_${u.user_id}">${roleOptions(u.role === 'category_editor' ? 'editor' : u.role)}</select><br><label>Primary country</label><select id="pc_${u.user_id}">${countryOptions(u.country_id)}</select><br><label>Allowed countries (comma IDs)</label><input id="ac_${u.user_id}" value="${(u.allowed_country_ids || []).join(',')}"><br><button id="su_${u.user_id}" class="accent">Save user</button>`;
-        root.appendChild(wrap);
-        document.getElementById(`su_${u.user_id}`).onclick = async () => {
-            const allowed = (document.getElementById(`ac_${u.user_id}`).value || '').split(',').map((s) => Number(s.trim())).filter((n) => n > 0);
+    const users = d.users.filter((u) => Number(u.user_id) !== Number(currentUserId));
+    if (!users.length) {
+        root.innerHTML = '<p class="event-meta">No other users found.</p>';
+        return;
+    }
+    root.innerHTML = `
+        <div style="overflow:auto;">
+            <table class="admin-users-table">
+                <thead>
+                    <tr>
+                        <th>User</th>
+                        <th>E-mail</th>
+                        <th>Approved</th>
+                        <th>Role</th>
+                        <th>Primary Country</th>
+                        <th>Allowed Countries (IDs)</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${users.map((u) => `
+                        <tr data-user-id="${u.user_id}">
+                            <td>${escHtml(u.username)}<br><span class="event-meta">${escHtml((u.first_name || '') + ' ' + (u.last_name || ''))}</span></td>
+                            <td><input id="em_${u.user_id}" type="email" value="${escHtml(u.email || u.username || '')}"></td>
+                            <td style="text-align:center;"><input id="ap_${u.user_id}" type="checkbox" ${u.is_approved ? 'checked' : ''}></td>
+                            <td><select id="ro_${u.user_id}">${roleOptions(u.role === 'category_editor' ? 'editor' : u.role)}</select></td>
+                            <td><select id="pc_${u.user_id}">${countryOptions(u.country_id)}</select></td>
+                            <td><input id="ac_${u.user_id}" value="${escHtml((u.allowed_country_ids || []).join(','))}"></td>
+                            <td style="white-space:nowrap;">
+                                <button class="accent" data-action="save" data-user-id="${u.user_id}">Save</button>
+                                <button class="danger" data-action="delete" data-user-id="${u.user_id}">Delete</button>
+                            </td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        </div>
+    `;
+
+    root.querySelectorAll('button[data-action="save"]').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+            const userId = Number(btn.dataset.userId || 0);
+            const allowed = (document.getElementById(`ac_${userId}`).value || '').split(',').map((s) => Number(s.trim())).filter((n) => n > 0);
             await api('includes/api/admin_user_update.php', {
                 method: 'POST',
                 body: JSON.stringify({
-                    user_id: u.user_id,
-                    email: document.getElementById(`em_${u.user_id}`).value,
-                    is_approved: document.getElementById(`ap_${u.user_id}`).checked ? 1 : 0,
-                    role: document.getElementById(`ro_${u.user_id}`).value,
-                    country_id: Number(document.getElementById(`pc_${u.user_id}`).value),
+                    user_id: userId,
+                    email: document.getElementById(`em_${userId}`).value,
+                    is_approved: document.getElementById(`ap_${userId}`).checked ? 1 : 0,
+                    role: document.getElementById(`ro_${userId}`).value,
+                    country_id: Number(document.getElementById(`pc_${userId}`).value),
                     allowed_country_ids: allowed
                 })
             });
             byId('adminMsg').textContent = 'User updated';
             await loadUsers();
-        };
+        });
+    });
+
+    root.querySelectorAll('button[data-action="delete"]').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+            const userId = Number(btn.dataset.userId || 0);
+            const email = document.getElementById(`em_${userId}`).value || `user #${userId}`;
+            if (!window.confirm(`Delete user ${email}? This cannot be undone.`)) return;
+            await api('includes/api/admin_user_delete.php', {
+                method: 'POST',
+                body: JSON.stringify({ user_id: userId })
+            });
+            byId('adminMsg').textContent = 'User deleted';
+            await loadUsers();
+        });
     });
 }
 

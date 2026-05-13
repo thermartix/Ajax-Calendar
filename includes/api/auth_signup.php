@@ -18,10 +18,6 @@ if (strtolower($username) !== strtolower($email)) {
     respond(['success' => false, 'message' => 'Username must match email'], 422);
 }
 
-if (!$countryId) {
-    respond(['success' => false, 'message' => 'Country is required'], 422);
-}
-
 $stmt = mysqli_prepare($mysqliConn, 'SELECT user_id FROM users WHERE username = ? LIMIT 1');
 mysqli_stmt_bind_param($stmt, 's', $username);
 mysqli_stmt_execute($stmt);
@@ -35,8 +31,9 @@ mysqli_stmt_close($stmt);
 $hash = password_hash($password, PASSWORD_DEFAULT);
 $role = 'visitor';
 $isApproved = 0;
+$countryForInsert = null;
 $stmt = mysqli_prepare($mysqliConn, 'INSERT INTO users (username, password, first_name, last_name, role, country_id, is_approved) VALUES (?, ?, ?, ?, ?, ?, ?)');
-mysqli_stmt_bind_param($stmt, 'sssssii', $username, $hash, $firstName, $lastName, $role, $countryId, $isApproved);
+mysqli_stmt_bind_param($stmt, 'sssssii', $username, $hash, $firstName, $lastName, $role, $countryForInsert, $isApproved);
 if (!mysqli_stmt_execute($stmt)) {
     mysqli_stmt_close($stmt);
     respond(['success' => false, 'message' => 'Could not create user'], 500);
@@ -61,7 +58,7 @@ $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
 $confirmUrl = $scheme . '://' . $host . '/includes/api/auth_verify_email.php?uid=' . urlencode((string)$userId) . '&token=' . urlencode($tokenPlain);
 $subject = 'Confirm your account email';
 $body = "Hello,\n\nPlease confirm your account by clicking this link:\n{$confirmUrl}\n\nThis link expires in 24 hours.";
-$headers = 'From: no-reply@localhost' . "\r\n" . 'X-Mailer: PHP/' . phpversion();
+$headers = 'From: no-reply@immeet.ing' . "\r\n" . 'Reply-To: no-reply@immeet.ing' . "\r\n" . 'X-Mailer: PHP/' . phpversion();
 $sent = @mail((string)$email, $subject, $body, $headers);
 if (!$sent) {
     respond(['success' => false, 'message' => 'Could not send confirmation email from this server.'], 500);

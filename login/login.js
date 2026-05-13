@@ -17,12 +17,12 @@ async function api(path, options = {}) {
 let otpCountdown = 0;
 let otpTimer = null;
 
-function showPane(name) {
+function showPane(name, keepMessage = false) {
     byId('passwordLoginPane').classList.toggle('hidden', name !== 'login');
     byId('otpPane').classList.toggle('hidden', name !== 'otp');
     byId('signupPane').classList.toggle('hidden', name !== 'signup');
     byId('formTitle').textContent = name === 'signup' ? 'Sign up' : (name === 'otp' ? 'Login with OTP' : 'Login');
-    byId('authMessage').textContent = '';
+    if (!keepMessage) byId('authMessage').textContent = '';
 }
 
 function setOtpCountdown(seconds) {
@@ -148,7 +148,7 @@ byId('signupBtn').onclick = async () => {
             })
         });
         byId('authMessage').textContent = 'Signup created. Please confirm your email from the link we sent.';
-        showPane('login');
+        showPane('login', true);
     } catch (e) {
         byId('authMessage').textContent = e.message;
     }

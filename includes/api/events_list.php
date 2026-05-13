@@ -248,17 +248,7 @@ foreach ($rows as $ev) {
         mysqli_stmt_close($iStmt);
     }
 
-    $canEdit = false;
-    if ($user) {
-        if ($user['role'] === 'admin') {
-            $canEdit = true;
-        } else {
-            $allowed = array_unique(array_merge([(int)$user['country_id']], $user['allowed_country_ids']));
-            $missing = array_diff($ev['country_ids'], $allowed);
-            $canEdit = count($missing) === 0;
-        }
-    }
-    $ev['can_edit'] = $canEdit;
+    $ev['can_edit'] = $user ? canEditEvent($user, ['user_id' => (int)$ev['user_id'], 'country_id' => (int)$ev['country_id'], 'country_ids' => $ev['country_ids']]) : false;
     $ev['creator_name'] = trim(($ev['first_name'] ?? '') . ' ' . ($ev['last_name'] ?? ''));
     if ($ev['creator_name'] === '') {
         $ev['creator_name'] = $ev['username'];

@@ -40,5 +40,5 @@ appSettingSet($mysqliConn, 'user_email_verify_token_' . $uid, '');
 appSettingSet($mysqliConn, 'user_email_verify_expires_' . $uid, '0');
 
 header('Content-Type: text/html; charset=utf-8');
-echo '<!doctype html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Email Confirmed</title></head><body style="font-family:Arial,sans-serif;padding:24px;"><h2>Email confirmed</h2><p>Your account is now active as a visitor.</p><p><a href="/login/">Go to login</a></p></body></html>';
+echo '<!doctype html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Email Confirmed</title></head><body style="font-family:Arial,sans-serif;padding:24px;"><h2>Email confirmed</h2><p>Your account is now active.</p><p><a href="/login/">Go to login</a></p></body></html>';
 ?>

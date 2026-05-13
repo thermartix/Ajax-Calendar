@@ -34,6 +34,10 @@ if (!function_exists('ensureEventMetaSchema')) {
             if (!$venueAddrCol || mysqli_num_rows($venueAddrCol) === 0) {
                 @mysqli_query($db, "ALTER TABLE events ADD COLUMN venue_address TEXT NULL");
             }
+            $ticketUrlCol = mysqli_query($db, "SHOW COLUMNS FROM events LIKE 'ticket_url'");
+            if (!$ticketUrlCol || mysqli_num_rows($ticketUrlCol) === 0) {
+                @mysqli_query($db, "ALTER TABLE events ADD COLUMN ticket_url VARCHAR(500) NULL");
+            }
             $venueImgCol = mysqli_query($db, "SHOW COLUMNS FROM events LIKE 'venue_image_path'");
             if (!$venueImgCol || mysqli_num_rows($venueImgCol) === 0) {
                 @mysqli_query($db, "ALTER TABLE events ADD COLUMN venue_image_path VARCHAR(255) NULL");
@@ -41,6 +45,10 @@ if (!function_exists('ensureEventMetaSchema')) {
             $audCol = mysqli_query($db, "SHOW COLUMNS FROM events LIKE 'audience_type'");
             if (!$audCol || mysqli_num_rows($audCol) === 0) {
                 @mysqli_query($db, "ALTER TABLE events ADD COLUMN audience_type VARCHAR(32) NOT NULL DEFAULT 'customers_guests'");
+            }
+            $soldOutCol = mysqli_query($db, "SHOW COLUMNS FROM events LIKE 'sold_out'");
+            if (!$soldOutCol || mysqli_num_rows($soldOutCol) === 0) {
+                @mysqli_query($db, "ALTER TABLE events ADD COLUMN sold_out TINYINT(1) NOT NULL DEFAULT 0");
             }
             $tbl = mysqli_query($db, "SHOW TABLES LIKE 'event_interpretation_countries'");
             if (!$tbl || mysqli_num_rows($tbl) === 0) {
@@ -105,6 +113,11 @@ $venueAddrCheck = mysqli_query($mysqliConn, "SHOW COLUMNS FROM events LIKE 'venu
 if ($venueAddrCheck && mysqli_num_rows($venueAddrCheck) > 0) {
     $hasVenueAddressColumn = true;
 }
+$hasTicketUrlColumn = false;
+$ticketUrlCheck = mysqli_query($mysqliConn, "SHOW COLUMNS FROM events LIKE 'ticket_url'");
+if ($ticketUrlCheck && mysqli_num_rows($ticketUrlCheck) > 0) {
+    $hasTicketUrlColumn = true;
+}
 $hasVenueImagePathColumn = false;
 $venueImgCheck = mysqli_query($mysqliConn, "SHOW COLUMNS FROM events LIKE 'venue_image_path'");
 if ($venueImgCheck && mysqli_num_rows($venueImgCheck) > 0) {
@@ -115,14 +128,22 @@ $audienceTypeCheck = mysqli_query($mysqliConn, "SHOW COLUMNS FROM events LIKE 'a
 if ($audienceTypeCheck && mysqli_num_rows($audienceTypeCheck) > 0) {
     $hasAudienceTypeColumn = true;
 }
+$hasSoldOutColumn = false;
+$soldOutCheck = mysqli_query($mysqliConn, "SHOW COLUMNS FROM events LIKE 'sold_out'");
+if ($soldOutCheck && mysqli_num_rows($soldOutCheck) > 0) {
+    $hasSoldOutColumn = true;
+}
 
 $id = isset($_POST['id']) && $_POST['id'] !== '' ? (int)$_POST['id'] : null;
+$copyFromId = isset($_POST['copy_from_id']) && $_POST['copy_from_id'] !== '' ? (int)$_POST['copy_from_id'] : null;
 $title = trim((string)($_POST['title'] ?? ''));
 $description = trim((string)($_POST['description'] ?? ''));
 $link = trim((string)($_POST['event_link'] ?? ''));
 $eventMode = trim((string)($_POST['event_mode'] ?? 'online'));
 $venueAddress = trim((string)($_POST['venue_address'] ?? ''));
+$ticketUrl = trim((string)($_POST['ticket_url'] ?? ''));
 $audienceType = trim((string)($_POST['audience_type'] ?? 'customers_guests'));
+$soldOut = ((string)($_POST['sold_out'] ?? '0') === '1') ? 1 : 0;
 $countryIdsRaw = isset($_POST['country_ids']) ? json_decode((string)$_POST['country_ids'], true) : [];
 $countryIds = is_array($countryIdsRaw) ? array_values(array_unique(array_map('intval', $countryIdsRaw))) : [];
 $countryIdPrimary = (int)($countryIds[0] ?? 0);
@@ -149,9 +170,15 @@ if (!in_array($audienceType, ['customers_guests', 'consultant_meeting', 'consult
 }
 if ($eventMode === 'offline') {
     $link = '';
+    $ticketUrl = substr($ticketUrl, 0, 500);
+} else {
+    $ticketUrl = '';
 }
 if ($link !== '' && !filter_var($link, FILTER_VALIDATE_URL)) {
     respond(['success' => false, 'message' => 'Invalid event link URL'], 422);
+}
+if ($ticketUrl !== '' && !filter_var($ticketUrl, FILTER_VALIDATE_URL)) {
+    respond(['success' => false, 'message' => 'Invalid ticket URL'], 422);
 }
 if ($endAt < $startAt) {
     respond(['success' => false, 'message' => 'End must be after start'], 422);
@@ -237,13 +264,23 @@ if (!is_dir($uploadBase)) {
     @mkdir($uploadBase, 0775, true);
 }
 
-function saveFileUpload(array $file, string $targetDir, string $webDir, array $allowedExts): ?string {
+function saveFileUpload(array $file, string $targetDir, string $webDir, array $allowedExts, string $prefix, string $startAt): ?string {
     if (!isset($file['tmp_name']) || $file['error'] === UPLOAD_ERR_NO_FILE) return null;
     if ($file['error'] !== UPLOAD_ERR_OK) return null;
+    if (!is_uploaded_file($file['tmp_name'])) return null;
+    if (((int)($file['size'] ?? 0)) <= 0) return null;
     $name = $file['name'] ?? 'file';
     $ext = strtolower(pathinfo($name, PATHINFO_EXTENSION));
     if (!in_array($ext, $allowedExts, true)) return null;
-    $safe = bin2hex(random_bytes(8)) . '.' . $ext;
+    $dateSeed = preg_replace('/[^0-9]/', '', substr($startAt, 0, 10));
+    if ($dateSeed === '') $dateSeed = date('Ymd');
+    $base = strtolower($prefix . '_' . $dateSeed);
+    $safe = $base . '.' . $ext;
+    $i = 1;
+    while (file_exists(rtrim($targetDir, '/\\') . DIRECTORY_SEPARATOR . $safe)) {
+        $safe = $base . '_' . $i . '.' . $ext;
+        $i += 1;
+    }
     $dest = rtrim($targetDir, '/\\') . DIRECTORY_SEPARATOR . $safe;
     if (!move_uploaded_file($file['tmp_name'], $dest)) return null;
     return rtrim($webDir, '/\\') . '/' . $safe;
@@ -271,9 +308,9 @@ function executeStmtOrEmojiError(mysqli_stmt $stmt): void {
     }
 }
 
-$newImagePath = isset($_FILES['event_image']) ? saveFileUpload($_FILES['event_image'], $uploadBase, $webBase, ['jpg', 'jpeg', 'png', 'webp']) : null;
-$newAttachmentPath = isset($_FILES['event_attachment']) ? saveFileUpload($_FILES['event_attachment'], $uploadBase, $webBase, ['pdf']) : null;
-$newVenueImagePath = isset($_FILES['venue_image']) ? saveFileUpload($_FILES['venue_image'], $uploadBase, $webBase, ['jpg', 'jpeg', 'png', 'webp']) : null;
+$newImagePath = isset($_FILES['event_image']) ? saveFileUpload($_FILES['event_image'], $uploadBase, $webBase, ['jpg', 'jpeg', 'png', 'webp'], 'banner', $startAt) : null;
+$newAttachmentPath = isset($_FILES['event_attachment']) ? saveFileUpload($_FILES['event_attachment'], $uploadBase, $webBase, ['pdf'], 'attachment', $startAt) : null;
+$newVenueImagePath = isset($_FILES['venue_image']) ? saveFileUpload($_FILES['venue_image'], $uploadBase, $webBase, ['jpg', 'jpeg', 'png', 'webp'], 'venue', $startAt) : null;
 
 if ($id) {
     $existingSql = 'SELECT id, image_path, attachment_path';
@@ -376,7 +413,7 @@ if ($id) {
     executeStmtOrEmojiError($stmt);
     mysqli_stmt_close($stmt);
 
-    if ($hasEventModeColumn || $hasVenueAddressColumn || $hasVenueImagePathColumn || $hasAudienceTypeColumn) {
+    if ($hasEventModeColumn || $hasVenueAddressColumn || $hasTicketUrlColumn || $hasVenueImagePathColumn || $hasAudienceTypeColumn || $hasSoldOutColumn) {
         $setParts = [];
         $bindTypes = '';
         $bindVals = [];
@@ -390,6 +427,11 @@ if ($id) {
             $bindTypes .= 's';
             $bindVals[] = ($eventMode === 'offline' ? $venueAddress : '');
         }
+        if ($hasTicketUrlColumn) {
+            $setParts[] = 'ticket_url = ?';
+            $bindTypes .= 's';
+            $bindVals[] = ($eventMode === 'offline' ? $ticketUrl : '');
+        }
         if ($hasVenueImagePathColumn) {
             $setParts[] = 'venue_image_path = ?';
             $bindTypes .= 's';
@@ -399,6 +441,11 @@ if ($id) {
             $setParts[] = 'audience_type = ?';
             $bindTypes .= 's';
             $bindVals[] = $audienceType;
+        }
+        if ($hasSoldOutColumn) {
+            $setParts[] = 'sold_out = ?';
+            $bindTypes .= 'i';
+            $bindVals[] = $soldOut;
         }
         if (!empty($setParts)) {
             $sqlMeta = 'UPDATE events SET ' . implode(', ', $setParts) . ' WHERE id = ?';
@@ -446,51 +493,87 @@ if ($countryIdPrimary <= 0) {
     respond(['success' => false, 'message' => 'Select at least one country'], 422);
 }
 
+$copiedImagePath = null;
+$copiedAttachmentPath = null;
+$copiedVenueImagePath = null;
+if (!$id && $copyFromId && $copyFromId > 0) {
+    $srcSql = 'SELECT id, image_path, attachment_path';
+    if ($hasVenueImagePathColumn) {
+        $srcSql .= ', venue_image_path';
+    }
+    $srcSql .= ' FROM events WHERE id = ? LIMIT 1';
+    $srcStmt = mysqli_prepare($mysqliConn, $srcSql);
+    mysqli_stmt_bind_param($srcStmt, 'i', $copyFromId);
+    mysqli_stmt_execute($srcStmt);
+    $src = stmtFetchOneAssoc($srcStmt);
+    mysqli_stmt_close($srcStmt);
+    if (!$src) {
+        respond(['success' => false, 'message' => 'Source event for copy not found'], 404);
+    }
+    if ($user['role'] !== 'admin') {
+        $csStmt = mysqli_prepare($mysqliConn, 'SELECT country_id FROM event_countries WHERE event_id = ?');
+        mysqli_stmt_bind_param($csStmt, 'i', $copyFromId);
+        mysqli_stmt_execute($csStmt);
+        $srcCountries = [];
+        foreach (stmtFetchAllAssoc($csStmt) as $r) $srcCountries[] = (int)$r['country_id'];
+        mysqli_stmt_close($csStmt);
+        $allowed = array_unique(array_merge([(int)$user['country_id']], $user['allowed_country_ids']));
+        $missingSrc = array_diff($srcCountries, $allowed);
+        if (!empty($missingSrc)) respond(['success' => false, 'message' => 'Not allowed to copy this event'], 403);
+    }
+    $copiedImagePath = $src['image_path'] ?? null;
+    $copiedAttachmentPath = $src['attachment_path'] ?? null;
+    $copiedVenueImagePath = $src['venue_image_path'] ?? null;
+}
+
 $userId = (int)$user['user_id'];
+$insertImagePath = $newImagePath ?: $copiedImagePath;
+$insertAttachmentPath = $newAttachmentPath ?: $copiedAttachmentPath;
+$insertVenueImagePath = $newVenueImagePath ?: $copiedVenueImagePath;
 if ($hasEventLanguageColumn && $hasRecurringColumns && $hasRecurrenceUntilColumn) {
     if ($hasRecurWeeksColumn) {
         $stmt = mysqli_prepare($mysqliConn, 'INSERT INTO events (user_id, country_id, title, description, event_link, image_path, attachment_path, recurrence_type, recur_week, recur_weeks, recur_weekday, recurrence_until, event_language_country_id, start_at, end_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
-        mysqli_stmt_bind_param($stmt, 'iissssssisisiss', $userId, $countryIdPrimary, $title, $description, $link, $newImagePath, $newAttachmentPath, $recurrenceType, $recurWeek, $recurWeeksCsv, $recurWeekday, $recurrenceUntil, $eventLanguageCountryId, $startAt, $endAt);
+        mysqli_stmt_bind_param($stmt, 'iissssssisisiss', $userId, $countryIdPrimary, $title, $description, $link, $insertImagePath, $insertAttachmentPath, $recurrenceType, $recurWeek, $recurWeeksCsv, $recurWeekday, $recurrenceUntil, $eventLanguageCountryId, $startAt, $endAt);
     } else {
         $stmt = mysqli_prepare($mysqliConn, 'INSERT INTO events (user_id, country_id, title, description, event_link, image_path, attachment_path, recurrence_type, recur_week, recur_weekday, recurrence_until, event_language_country_id, start_at, end_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
-        mysqli_stmt_bind_param($stmt, 'iissssssiisiss', $userId, $countryIdPrimary, $title, $description, $link, $newImagePath, $newAttachmentPath, $recurrenceType, $recurWeek, $recurWeekday, $recurrenceUntil, $eventLanguageCountryId, $startAt, $endAt);
+        mysqli_stmt_bind_param($stmt, 'iissssssiisiss', $userId, $countryIdPrimary, $title, $description, $link, $insertImagePath, $insertAttachmentPath, $recurrenceType, $recurWeek, $recurWeekday, $recurrenceUntil, $eventLanguageCountryId, $startAt, $endAt);
     }
 } elseif ($hasEventLanguageColumn && $hasRecurringColumns && !$hasRecurrenceUntilColumn) {
     if ($hasRecurWeeksColumn) {
         $stmt = mysqli_prepare($mysqliConn, 'INSERT INTO events (user_id, country_id, title, description, event_link, image_path, attachment_path, recurrence_type, recur_week, recur_weeks, recur_weekday, event_language_country_id, start_at, end_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
-        mysqli_stmt_bind_param($stmt, 'iissssssisiiss', $userId, $countryIdPrimary, $title, $description, $link, $newImagePath, $newAttachmentPath, $recurrenceType, $recurWeek, $recurWeeksCsv, $recurWeekday, $eventLanguageCountryId, $startAt, $endAt);
+        mysqli_stmt_bind_param($stmt, 'iissssssisiiss', $userId, $countryIdPrimary, $title, $description, $link, $insertImagePath, $insertAttachmentPath, $recurrenceType, $recurWeek, $recurWeeksCsv, $recurWeekday, $eventLanguageCountryId, $startAt, $endAt);
     } else {
         $stmt = mysqli_prepare($mysqliConn, 'INSERT INTO events (user_id, country_id, title, description, event_link, image_path, attachment_path, recurrence_type, recur_week, recur_weekday, event_language_country_id, start_at, end_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
-        mysqli_stmt_bind_param($stmt, 'iissssssiiiss', $userId, $countryIdPrimary, $title, $description, $link, $newImagePath, $newAttachmentPath, $recurrenceType, $recurWeek, $recurWeekday, $eventLanguageCountryId, $startAt, $endAt);
+        mysqli_stmt_bind_param($stmt, 'iissssssiiiss', $userId, $countryIdPrimary, $title, $description, $link, $insertImagePath, $insertAttachmentPath, $recurrenceType, $recurWeek, $recurWeekday, $eventLanguageCountryId, $startAt, $endAt);
     }
 } elseif ($hasEventLanguageColumn && !$hasRecurringColumns) {
     $stmt = mysqli_prepare($mysqliConn, 'INSERT INTO events (user_id, country_id, title, description, event_link, image_path, attachment_path, event_language_country_id, start_at, end_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
-    mysqli_stmt_bind_param($stmt, 'iisssssiss', $userId, $countryIdPrimary, $title, $description, $link, $newImagePath, $newAttachmentPath, $eventLanguageCountryId, $startAt, $endAt);
+    mysqli_stmt_bind_param($stmt, 'iisssssiss', $userId, $countryIdPrimary, $title, $description, $link, $insertImagePath, $insertAttachmentPath, $eventLanguageCountryId, $startAt, $endAt);
 } elseif (!$hasEventLanguageColumn && $hasRecurringColumns && $hasRecurrenceUntilColumn) {
     if ($hasRecurWeeksColumn) {
         $stmt = mysqli_prepare($mysqliConn, 'INSERT INTO events (user_id, country_id, title, description, event_link, image_path, attachment_path, recurrence_type, recur_week, recur_weeks, recur_weekday, recurrence_until, start_at, end_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
-        mysqli_stmt_bind_param($stmt, 'iissssssisisss', $userId, $countryIdPrimary, $title, $description, $link, $newImagePath, $newAttachmentPath, $recurrenceType, $recurWeek, $recurWeeksCsv, $recurWeekday, $recurrenceUntil, $startAt, $endAt);
+        mysqli_stmt_bind_param($stmt, 'iissssssisisss', $userId, $countryIdPrimary, $title, $description, $link, $insertImagePath, $insertAttachmentPath, $recurrenceType, $recurWeek, $recurWeeksCsv, $recurWeekday, $recurrenceUntil, $startAt, $endAt);
     } else {
         $stmt = mysqli_prepare($mysqliConn, 'INSERT INTO events (user_id, country_id, title, description, event_link, image_path, attachment_path, recurrence_type, recur_week, recur_weekday, recurrence_until, start_at, end_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
-        mysqli_stmt_bind_param($stmt, 'iissssssiisss', $userId, $countryIdPrimary, $title, $description, $link, $newImagePath, $newAttachmentPath, $recurrenceType, $recurWeek, $recurWeekday, $recurrenceUntil, $startAt, $endAt);
+        mysqli_stmt_bind_param($stmt, 'iissssssiisss', $userId, $countryIdPrimary, $title, $description, $link, $insertImagePath, $insertAttachmentPath, $recurrenceType, $recurWeek, $recurWeekday, $recurrenceUntil, $startAt, $endAt);
     }
 } elseif (!$hasEventLanguageColumn && $hasRecurringColumns && !$hasRecurrenceUntilColumn) {
     if ($hasRecurWeeksColumn) {
         $stmt = mysqli_prepare($mysqliConn, 'INSERT INTO events (user_id, country_id, title, description, event_link, image_path, attachment_path, recurrence_type, recur_week, recur_weeks, recur_weekday, start_at, end_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
-        mysqli_stmt_bind_param($stmt, 'iissssssisiss', $userId, $countryIdPrimary, $title, $description, $link, $newImagePath, $newAttachmentPath, $recurrenceType, $recurWeek, $recurWeeksCsv, $recurWeekday, $startAt, $endAt);
+        mysqli_stmt_bind_param($stmt, 'iissssssisiss', $userId, $countryIdPrimary, $title, $description, $link, $insertImagePath, $insertAttachmentPath, $recurrenceType, $recurWeek, $recurWeeksCsv, $recurWeekday, $startAt, $endAt);
     } else {
         $stmt = mysqli_prepare($mysqliConn, 'INSERT INTO events (user_id, country_id, title, description, event_link, image_path, attachment_path, recurrence_type, recur_week, recur_weekday, start_at, end_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
-        mysqli_stmt_bind_param($stmt, 'iisssssiiiss', $userId, $countryIdPrimary, $title, $description, $link, $newImagePath, $newAttachmentPath, $recurrenceType, $recurWeek, $recurWeekday, $startAt, $endAt);
+        mysqli_stmt_bind_param($stmt, 'iisssssiiiss', $userId, $countryIdPrimary, $title, $description, $link, $insertImagePath, $insertAttachmentPath, $recurrenceType, $recurWeek, $recurWeekday, $startAt, $endAt);
     }
 } else {
     $stmt = mysqli_prepare($mysqliConn, 'INSERT INTO events (user_id, country_id, title, description, event_link, image_path, attachment_path, start_at, end_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)');
-    mysqli_stmt_bind_param($stmt, 'iisssssss', $userId, $countryIdPrimary, $title, $description, $link, $newImagePath, $newAttachmentPath, $startAt, $endAt);
+    mysqli_stmt_bind_param($stmt, 'iisssssss', $userId, $countryIdPrimary, $title, $description, $link, $insertImagePath, $insertAttachmentPath, $startAt, $endAt);
 }
 executeStmtOrEmojiError($stmt);
 $newId = mysqli_insert_id($mysqliConn);
 mysqli_stmt_close($stmt);
 
-if ($hasEventModeColumn || $hasVenueAddressColumn || $hasVenueImagePathColumn || $hasAudienceTypeColumn) {
+if ($hasEventModeColumn || $hasVenueAddressColumn || $hasTicketUrlColumn || $hasVenueImagePathColumn || $hasAudienceTypeColumn || $hasSoldOutColumn) {
     $setParts = [];
     $bindTypes = '';
     $bindVals = [];
@@ -504,15 +587,25 @@ if ($hasEventModeColumn || $hasVenueAddressColumn || $hasVenueImagePathColumn ||
         $bindTypes .= 's';
         $bindVals[] = ($eventMode === 'offline' ? $venueAddress : '');
     }
+    if ($hasTicketUrlColumn) {
+        $setParts[] = 'ticket_url = ?';
+        $bindTypes .= 's';
+        $bindVals[] = ($eventMode === 'offline' ? $ticketUrl : '');
+    }
     if ($hasVenueImagePathColumn) {
         $setParts[] = 'venue_image_path = ?';
         $bindTypes .= 's';
-        $bindVals[] = ($eventMode === 'offline' ? $newVenueImagePath : null);
+        $bindVals[] = ($eventMode === 'offline' ? $insertVenueImagePath : null);
     }
     if ($hasAudienceTypeColumn) {
         $setParts[] = 'audience_type = ?';
         $bindTypes .= 's';
         $bindVals[] = $audienceType;
+    }
+    if ($hasSoldOutColumn) {
+        $setParts[] = 'sold_out = ?';
+        $bindTypes .= 'i';
+        $bindVals[] = $soldOut;
     }
     if (!empty($setParts)) {
         $sqlMeta = 'UPDATE events SET ' . implode(', ', $setParts) . ' WHERE id = ?';

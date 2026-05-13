@@ -56,8 +56,12 @@ session_start();
 
     <dialog id="eventDialog">
         <form id="eventForm" method="dialog">
-            <h3 id="eventDialogTitle">New Event</h3>
+            <div class="event-form-head">
+                <h3 id="eventDialogTitle">New Event</h3>
+                <button type="button" id="copyEventBtn" class="accent small-action" hidden>Copy Event</button>
+            </div>
             <input type="hidden" id="eventId">
+            <input type="hidden" id="copyFromId">
             <div id="eventFormImagePreview" class="event-form-image-preview"></div>
 
             <label for="eventTitle">Title</label>
@@ -81,6 +85,8 @@ session_start();
             <div id="eventOfflineWrap">
                 <label for="eventVenueAddress" id="eventVenueAddressLabel">Venue Address</label>
                 <textarea id="eventVenueAddress" rows="3" placeholder="Street, city, ZIP..."></textarea>
+                <label for="eventTicketUrl" id="eventTicketUrlLabel">Ticket URL</label>
+                <input id="eventTicketUrl" type="url" placeholder="https://tickets.example.com/event">
                 <label for="eventVenueImage" id="eventVenueImageLabel">Venue Photo</label>
                 <input id="eventVenueImage" type="file" accept=".jpg,.jpeg,.png,.webp">
                 <div id="eventVenueImagePreview" class="event-form-image-preview"></div>
@@ -91,6 +97,11 @@ session_start();
                 <option value="customers_guests">Customers and guests</option>
                 <option value="consultant_meeting">Consultant meeting</option>
                 <option value="consultant_training">Consultant training</option>
+            </select>
+            <label for="eventSoldOut" id="eventSoldOutLabel">Sold Out</label>
+            <select id="eventSoldOut">
+                <option value="0">Available</option>
+                <option value="1">Sold out</option>
             </select>
 
             <label for="eventImage">Header Image (1200x420 recommended)</label>
@@ -169,6 +180,7 @@ session_start();
                 <div id="eventViewCountriesRow"></div>
                 <p id="eventViewMeta" class="event-meta"></p>
                 <p id="eventViewRecurrence" class="event-meta"></p>
+                <p id="eventViewTicketWrap"></p>
                 <p id="eventViewDescription"></p>
                 <div class="event-view-main">
                     <div class="event-view-info">

@@ -119,6 +119,12 @@ button.danger { background: var(--danger); color: #fff; border-color: var(--dang
     background: #fbfdfc;
 }
 
+.day-cell.today {
+    background: #dbe8f8;
+    border-color: #9eb8de;
+    box-shadow: inset 0 0 0 1px rgba(42, 87, 153, 0.18);
+}
+
 .day-cell.other { opacity: 0.55; }
 .day-num { font-weight: 800; font-size: 0.92rem; margin-bottom: 6px; }
 .event-pill {
@@ -159,6 +165,20 @@ dialog::backdrop { background: rgba(7, 26, 24, 0.55); }
     gap: 8px;
     padding: 16px;
 }
+.event-form-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+.event-form-head h3 { margin: 0; }
+#copyEventBtn.small-action {
+    width: auto;
+    justify-self: end;
+    padding: 6px 10px;
+    font-size: 0.85rem;
+    line-height: 1.1;
+}
 .event-form-image-preview {
     width: 100%;
     aspect-ratio: 1200 / 420;
@@ -190,7 +210,11 @@ dialog::backdrop { background: rgba(7, 26, 24, 0.55); }
 .auth-grid { grid-template-columns: 1fr 1fr; }
 .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 10px; }
 
-.event-view { position: relative; }
+.event-view {
+    position: relative;
+    max-height: min(82vh, 760px);
+    overflow: auto;
+}
 .share-btn {
     position: absolute;
     top: 10px;
@@ -216,6 +240,7 @@ dialog::backdrop { background: rgba(7, 26, 24, 0.55); }
     background: rgba(255, 255, 255, 0.92);
 }
 .event-view-hero {
+    position: relative;
     width: 100%;
     aspect-ratio: 1200 / 420;
     background: linear-gradient(130deg, #114f4a 0%, #1d7a71 100%);
@@ -239,9 +264,44 @@ dialog::backdrop { background: rgba(7, 26, 24, 0.55); }
     text-align: center;
     padding: 16px;
 }
+.hero-overlay-note {
+    position: absolute;
+    left: 14px;
+    bottom: 14px;
+    background: rgba(11, 90, 86, 0.92);
+    color: #fff;
+    padding: 7px 10px;
+    border-radius: 8px;
+    font-size: 0.82rem;
+    font-weight: 700;
+}
+.hero-overlay-soldout {
+    position: absolute;
+    right: 14px;
+    top: 14px;
+    background: rgba(190, 22, 22, 0.95);
+    color: #fff;
+    padding: 7px 11px;
+    border-radius: 8px;
+    font-size: 0.82rem;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+}
 .event-view-body { padding: 14px 16px 16px; }
 .event-view-body h3 { margin: 0 0 8px; }
 #eventViewLinkWrap { word-break: break-all; margin: 8px 0; }
+.ticket-cta {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 10px;
+    font-weight: 700;
+    text-decoration: none;
+    color: #1d5fbf;
+}
+.ticket-cta:hover { text-decoration: underline; }
+.ticket-icon { font-size: 1rem; line-height: 1; }
 .event-view-main {
     display: grid;
     grid-template-columns: 1fr 120px;
@@ -256,8 +316,8 @@ dialog::backdrop { background: rgba(7, 26, 24, 0.55); }
 .event-view-qr img { width: 110px; height: 110px; display: block; }
 .event-author { font-size: 0.82rem; color: var(--muted); margin-top: 8px; }
 .event-view-body {
-    max-height: min(70vh, 680px);
-    overflow: auto;
+    max-height: none;
+    overflow: visible;
 }
 .flag-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 6px 0; }
 .flag-chip {

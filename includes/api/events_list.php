@@ -44,6 +44,11 @@ $venueAddressCheck = mysqli_query($mysqliConn, "SHOW COLUMNS FROM events LIKE 'v
 if ($venueAddressCheck && mysqli_num_rows($venueAddressCheck) > 0) {
     $hasVenueAddressColumn = true;
 }
+$hasTicketUrlColumn = false;
+$ticketUrlCheck = mysqli_query($mysqliConn, "SHOW COLUMNS FROM events LIKE 'ticket_url'");
+if ($ticketUrlCheck && mysqli_num_rows($ticketUrlCheck) > 0) {
+    $hasTicketUrlColumn = true;
+}
 $hasVenueImagePathColumn = false;
 $venueImageCheck = mysqli_query($mysqliConn, "SHOW COLUMNS FROM events LIKE 'venue_image_path'");
 if ($venueImageCheck && mysqli_num_rows($venueImageCheck) > 0) {
@@ -53,6 +58,11 @@ $hasAudienceTypeColumn = false;
 $audienceTypeCheck = mysqli_query($mysqliConn, "SHOW COLUMNS FROM events LIKE 'audience_type'");
 if ($audienceTypeCheck && mysqli_num_rows($audienceTypeCheck) > 0) {
     $hasAudienceTypeColumn = true;
+}
+$hasSoldOutColumn = false;
+$soldOutCheck = mysqli_query($mysqliConn, "SHOW COLUMNS FROM events LIKE 'sold_out'");
+if ($soldOutCheck && mysqli_num_rows($soldOutCheck) > 0) {
+    $hasSoldOutColumn = true;
 }
 $hasOccurrenceExceptions = false;
 $excCheck = mysqli_query($mysqliConn, "SHOW TABLES LIKE 'event_occurrence_exceptions'");
@@ -93,6 +103,11 @@ if ($hasVenueAddressColumn) {
 } else {
     $sql .= 'NULL AS venue_address, ';
 }
+if ($hasTicketUrlColumn) {
+    $sql .= 'e.ticket_url, ';
+} else {
+    $sql .= 'NULL AS ticket_url, ';
+}
 if ($hasVenueImagePathColumn) {
     $sql .= 'e.venue_image_path, ';
 } else {
@@ -102,6 +117,11 @@ if ($hasAudienceTypeColumn) {
     $sql .= 'e.audience_type, ';
 } else {
     $sql .= '"customers_guests" AS audience_type, ';
+}
+if ($hasSoldOutColumn) {
+    $sql .= 'e.sold_out, ';
+} else {
+    $sql .= '0 AS sold_out, ';
 }
 $sql .= 'e.start_at, e.end_at, u.username, u.first_name, u.last_name FROM events e JOIN countries c ON c.id = e.country_id JOIN users u ON u.user_id = e.user_id ';
 if ($hasEventLanguageColumn) {

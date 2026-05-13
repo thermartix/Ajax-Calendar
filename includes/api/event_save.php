@@ -26,6 +26,22 @@ if (!function_exists('ensureEventMetaSchema')) {
                 // Best-effort only; deployments without ALTER privileges must run migrations manually.
                 @mysqli_query($db, "ALTER TABLE events ADD COLUMN event_language_country_id INT NULL");
             }
+            $modeCol = mysqli_query($db, "SHOW COLUMNS FROM events LIKE 'event_mode'");
+            if (!$modeCol || mysqli_num_rows($modeCol) === 0) {
+                @mysqli_query($db, "ALTER TABLE events ADD COLUMN event_mode VARCHAR(16) NOT NULL DEFAULT 'online'");
+            }
+            $venueAddrCol = mysqli_query($db, "SHOW COLUMNS FROM events LIKE 'venue_address'");
+            if (!$venueAddrCol || mysqli_num_rows($venueAddrCol) === 0) {
+                @mysqli_query($db, "ALTER TABLE events ADD COLUMN venue_address TEXT NULL");
+            }
+            $venueImgCol = mysqli_query($db, "SHOW COLUMNS FROM events LIKE 'venue_image_path'");
+            if (!$venueImgCol || mysqli_num_rows($venueImgCol) === 0) {
+                @mysqli_query($db, "ALTER TABLE events ADD COLUMN venue_image_path VARCHAR(255) NULL");
+            }
+            $audCol = mysqli_query($db, "SHOW COLUMNS FROM events LIKE 'audience_type'");
+            if (!$audCol || mysqli_num_rows($audCol) === 0) {
+                @mysqli_query($db, "ALTER TABLE events ADD COLUMN audience_type VARCHAR(32) NOT NULL DEFAULT 'customers_guests'");
+            }
             $tbl = mysqli_query($db, "SHOW TABLES LIKE 'event_interpretation_countries'");
             if (!$tbl || mysqli_num_rows($tbl) === 0) {
                 @mysqli_query($db, "CREATE TABLE event_interpretation_countries (
@@ -79,11 +95,34 @@ $interpTblCheck = mysqli_query($mysqliConn, "SHOW TABLES LIKE 'event_interpretat
 if ($interpTblCheck && mysqli_num_rows($interpTblCheck) > 0) {
     $hasInterpTable = true;
 }
+$hasEventModeColumn = false;
+$modeColCheck = mysqli_query($mysqliConn, "SHOW COLUMNS FROM events LIKE 'event_mode'");
+if ($modeColCheck && mysqli_num_rows($modeColCheck) > 0) {
+    $hasEventModeColumn = true;
+}
+$hasVenueAddressColumn = false;
+$venueAddrCheck = mysqli_query($mysqliConn, "SHOW COLUMNS FROM events LIKE 'venue_address'");
+if ($venueAddrCheck && mysqli_num_rows($venueAddrCheck) > 0) {
+    $hasVenueAddressColumn = true;
+}
+$hasVenueImagePathColumn = false;
+$venueImgCheck = mysqli_query($mysqliConn, "SHOW COLUMNS FROM events LIKE 'venue_image_path'");
+if ($venueImgCheck && mysqli_num_rows($venueImgCheck) > 0) {
+    $hasVenueImagePathColumn = true;
+}
+$hasAudienceTypeColumn = false;
+$audienceTypeCheck = mysqli_query($mysqliConn, "SHOW COLUMNS FROM events LIKE 'audience_type'");
+if ($audienceTypeCheck && mysqli_num_rows($audienceTypeCheck) > 0) {
+    $hasAudienceTypeColumn = true;
+}
 
 $id = isset($_POST['id']) && $_POST['id'] !== '' ? (int)$_POST['id'] : null;
 $title = trim((string)($_POST['title'] ?? ''));
 $description = trim((string)($_POST['description'] ?? ''));
 $link = trim((string)($_POST['event_link'] ?? ''));
+$eventMode = trim((string)($_POST['event_mode'] ?? 'online'));
+$venueAddress = trim((string)($_POST['venue_address'] ?? ''));
+$audienceType = trim((string)($_POST['audience_type'] ?? 'customers_guests'));
 $countryIdsRaw = isset($_POST['country_ids']) ? json_decode((string)$_POST['country_ids'], true) : [];
 $countryIds = is_array($countryIdsRaw) ? array_values(array_unique(array_map('intval', $countryIdsRaw))) : [];
 $countryIdPrimary = (int)($countryIds[0] ?? 0);
@@ -101,6 +140,15 @@ $recurrenceUntil = isset($_POST['recurrence_until']) && trim((string)$_POST['rec
 
 if ($title === '' || $startAt === '' || $endAt === '') {
     respond(['success' => false, 'message' => 'Missing required fields'], 422);
+}
+if ($eventMode !== 'online' && $eventMode !== 'offline') {
+    $eventMode = 'online';
+}
+if ($audienceType !== 'customers_guests' && $audienceType !== 'consultants') {
+    $audienceType = 'customers_guests';
+}
+if ($eventMode === 'offline') {
+    $link = '';
 }
 if ($link !== '' && !filter_var($link, FILTER_VALIDATE_URL)) {
     respond(['success' => false, 'message' => 'Invalid event link URL'], 422);
@@ -164,6 +212,24 @@ if (!empty($interpretationCountryIds) && !$hasInterpTable) {
         'message' => 'Interpretation is not available because event_interpretation_countries table is missing and DB permissions prevented auto-migration.'
     ], 500);
 }
+if ($audienceType !== 'customers_guests' && !$hasAudienceTypeColumn) {
+    respond([
+        'success' => false,
+        'message' => 'Audience type is not available because events.audience_type is missing and DB permissions prevented auto-migration.'
+    ], 500);
+}
+if ($eventMode !== 'online' && !$hasEventModeColumn) {
+    respond([
+        'success' => false,
+        'message' => 'Event mode is not available because events.event_mode is missing and DB permissions prevented auto-migration.'
+    ], 500);
+}
+if (($venueAddress !== '' || (isset($_FILES['venue_image']) && (int)($_FILES['venue_image']['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE)) && (!$hasVenueAddressColumn || !$hasVenueImagePathColumn)) {
+    respond([
+        'success' => false,
+        'message' => 'Offline venue details are not available because required events venue columns are missing and DB permissions prevented auto-migration.'
+    ], 500);
+}
 
 $uploadBase = __DIR__ . '/../../assets/uploads';
 $webBase = 'assets/uploads';
@@ -207,9 +273,15 @@ function executeStmtOrEmojiError(mysqli_stmt $stmt): void {
 
 $newImagePath = isset($_FILES['event_image']) ? saveFileUpload($_FILES['event_image'], $uploadBase, $webBase, ['jpg', 'jpeg', 'png', 'webp']) : null;
 $newAttachmentPath = isset($_FILES['event_attachment']) ? saveFileUpload($_FILES['event_attachment'], $uploadBase, $webBase, ['pdf']) : null;
+$newVenueImagePath = isset($_FILES['venue_image']) ? saveFileUpload($_FILES['venue_image'], $uploadBase, $webBase, ['jpg', 'jpeg', 'png', 'webp']) : null;
 
 if ($id) {
-    $stmt = mysqli_prepare($mysqliConn, 'SELECT id, image_path, attachment_path FROM events WHERE id = ? LIMIT 1');
+    $existingSql = 'SELECT id, image_path, attachment_path';
+    if ($hasVenueImagePathColumn) {
+        $existingSql .= ', venue_image_path';
+    }
+    $existingSql .= ' FROM events WHERE id = ? LIMIT 1';
+    $stmt = mysqli_prepare($mysqliConn, $existingSql);
     mysqli_stmt_bind_param($stmt, 'i', $id);
     mysqli_stmt_execute($stmt);
     $existing = stmtFetchOneAssoc($stmt);
@@ -262,6 +334,7 @@ if ($id) {
 
     $finalImagePath = $newImagePath ?: $existing['image_path'];
     $finalAttachmentPath = $newAttachmentPath ?: $existing['attachment_path'];
+    $finalVenueImagePath = $hasVenueImagePathColumn ? ($newVenueImagePath ?: ($existing['venue_image_path'] ?? null)) : null;
 
     if ($hasEventLanguageColumn && $hasRecurringColumns && $hasRecurrenceUntilColumn && $hasRecurWeeksColumn) {
         $stmt = mysqli_prepare($mysqliConn, 'UPDATE events SET country_id = ?, title = ?, description = ?, event_link = ?, image_path = ?, attachment_path = ?, recurrence_type = ?, recur_week = ?, recur_weeks = ?, recur_weekday = ?, recurrence_until = ?, event_language_country_id = ?, start_at = ?, end_at = ? WHERE id = ?');
@@ -302,6 +375,41 @@ if ($id) {
     }
     executeStmtOrEmojiError($stmt);
     mysqli_stmt_close($stmt);
+
+    if ($hasEventModeColumn || $hasVenueAddressColumn || $hasVenueImagePathColumn || $hasAudienceTypeColumn) {
+        $setParts = [];
+        $bindTypes = '';
+        $bindVals = [];
+        if ($hasEventModeColumn) {
+            $setParts[] = 'event_mode = ?';
+            $bindTypes .= 's';
+            $bindVals[] = $eventMode;
+        }
+        if ($hasVenueAddressColumn) {
+            $setParts[] = 'venue_address = ?';
+            $bindTypes .= 's';
+            $bindVals[] = ($eventMode === 'offline' ? $venueAddress : '');
+        }
+        if ($hasVenueImagePathColumn) {
+            $setParts[] = 'venue_image_path = ?';
+            $bindTypes .= 's';
+            $bindVals[] = ($eventMode === 'offline' ? $finalVenueImagePath : null);
+        }
+        if ($hasAudienceTypeColumn) {
+            $setParts[] = 'audience_type = ?';
+            $bindTypes .= 's';
+            $bindVals[] = $audienceType;
+        }
+        if (!empty($setParts)) {
+            $sqlMeta = 'UPDATE events SET ' . implode(', ', $setParts) . ' WHERE id = ?';
+            $mStmt = mysqli_prepare($mysqliConn, $sqlMeta);
+            $bindTypes .= 'i';
+            $bindVals[] = $id;
+            mysqli_stmt_bind_param($mStmt, $bindTypes, ...$bindVals);
+            executeStmtOrEmojiError($mStmt);
+            mysqli_stmt_close($mStmt);
+        }
+    }
 
     $dStmt = mysqli_prepare($mysqliConn, 'DELETE FROM event_countries WHERE event_id = ?');
     mysqli_stmt_bind_param($dStmt, 'i', $id);
@@ -381,6 +489,41 @@ if ($hasEventLanguageColumn && $hasRecurringColumns && $hasRecurrenceUntilColumn
 executeStmtOrEmojiError($stmt);
 $newId = mysqli_insert_id($mysqliConn);
 mysqli_stmt_close($stmt);
+
+if ($hasEventModeColumn || $hasVenueAddressColumn || $hasVenueImagePathColumn || $hasAudienceTypeColumn) {
+    $setParts = [];
+    $bindTypes = '';
+    $bindVals = [];
+    if ($hasEventModeColumn) {
+        $setParts[] = 'event_mode = ?';
+        $bindTypes .= 's';
+        $bindVals[] = $eventMode;
+    }
+    if ($hasVenueAddressColumn) {
+        $setParts[] = 'venue_address = ?';
+        $bindTypes .= 's';
+        $bindVals[] = ($eventMode === 'offline' ? $venueAddress : '');
+    }
+    if ($hasVenueImagePathColumn) {
+        $setParts[] = 'venue_image_path = ?';
+        $bindTypes .= 's';
+        $bindVals[] = ($eventMode === 'offline' ? $newVenueImagePath : null);
+    }
+    if ($hasAudienceTypeColumn) {
+        $setParts[] = 'audience_type = ?';
+        $bindTypes .= 's';
+        $bindVals[] = $audienceType;
+    }
+    if (!empty($setParts)) {
+        $sqlMeta = 'UPDATE events SET ' . implode(', ', $setParts) . ' WHERE id = ?';
+        $mStmt = mysqli_prepare($mysqliConn, $sqlMeta);
+        $bindTypes .= 'i';
+        $bindVals[] = $newId;
+        mysqli_stmt_bind_param($mStmt, $bindTypes, ...$bindVals);
+        executeStmtOrEmojiError($mStmt);
+        mysqli_stmt_close($mStmt);
+    }
+}
 
 $iStmt = mysqli_prepare($mysqliConn, 'INSERT INTO event_countries (event_id, country_id) VALUES (?, ?)');
 foreach ($countryIds as $cid) {

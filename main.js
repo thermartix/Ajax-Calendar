@@ -7,32 +7,43 @@ const state = {
     user: null,
     datetimeFormat: 'eu'
 };
+const EVENT_LANGUAGE_DEFS = [
+    { code: 'en', name: 'English', flagIso: 'gb' },
+    { code: 'fr', name: 'French', flagIso: 'fr' },
+    { code: 'de', name: 'German', flagIso: 'de' },
+    { code: 'hu', name: 'Hungarian', flagIso: 'hu' },
+    { code: 'it', name: 'Italian', flagIso: 'it' },
+    { code: 'ro', name: 'Romanian', flagIso: 'ro' },
+    { code: 'es', name: 'Spanish', flagIso: 'es' },
+    { code: 'pt', name: 'Portuguese', flagIso: 'pt' },
+    { code: 'sk', name: 'Slovak', flagIso: 'sk' }
+];
 let pendingOpenEventId = null;
 let langMenuOpen = false;
 let activeViewedEvent = null;
 
 const LANGUAGES = [
-    { code: 'cs', name: 'Czech', countryIso: 'cz' },
     { code: 'en', name: 'English', countryIso: 'gb' },
     { code: 'fr', name: 'French', countryIso: 'fr' },
     { code: 'de', name: 'German', countryIso: 'de' },
     { code: 'hu', name: 'Hungarian', countryIso: 'hu' },
     { code: 'it', name: 'Italian', countryIso: 'it' },
+    { code: 'pt', name: 'Portuguese', countryIso: 'pt' },
     { code: 'ro', name: 'Romanian', countryIso: 'ro' },
     { code: 'sk', name: 'Slovak', countryIso: 'sk' },
     { code: 'es', name: 'Spanish', countryIso: 'es' }
 ].sort((a, b) => a.name.localeCompare(b.name));
 
 const I18N = {
-    en: { eventCalendar: 'Event Calendar', prev: 'Previous', today: 'Today', next: 'Next', newEvent: 'New Event', share: 'Share', copied: 'Copied', copyFailed: 'Copy failed', eventLanguage: 'Event language', interpretation: 'Interpretation' },
-    de: { eventCalendar: 'Ereigniskalender', prev: 'Zurück', today: 'Heute', next: 'Weiter', newEvent: 'Neues Ereignis', share: 'Teilen', copied: 'Kopiert', copyFailed: 'Fehlgeschlagen', eventLanguage: 'Veranstaltungssprache', interpretation: 'Es wird in die folgenden Sprachen übersetzt:' },
-    it: { eventCalendar: 'Calendario Eventi', prev: 'Precedente', today: 'Oggi', next: 'Successivo', newEvent: 'Nuovo Evento', share: 'Condividi', copied: 'Copiato', copyFailed: 'Errore copia', eventLanguage: "Lingua dell'evento", interpretation: 'Interpretazione' },
-    es: { eventCalendar: 'Calendario de Eventos', prev: 'Anterior', today: 'Hoy', next: 'Siguiente', newEvent: 'Nuevo Evento', share: 'Compartir', copied: 'Copiado', copyFailed: 'Error al copiar', eventLanguage: 'Idioma del evento', interpretation: 'Interpretación' },
-    fr: { eventCalendar: 'Calendrier des Événements', prev: 'Précédent', today: "Aujourd'hui", next: 'Suivant', newEvent: 'Nouvel Événement', share: 'Partager', copied: 'Copié', copyFailed: 'Échec copie', eventLanguage: "Langue de l'événement", interpretation: 'Interprétation' },
-    hu: { eventCalendar: 'Eseménynaptár', prev: 'Előző', today: 'Ma', next: 'Következő', newEvent: 'Új Esemény', share: 'Megosztás', copied: 'Másolva', copyFailed: 'Sikertelen', eventLanguage: 'Esemény nyelve', interpretation: 'Tolmácsolás' },
-    ro: { eventCalendar: 'Calendar Evenimente', prev: 'Anterior', today: 'Astăzi', next: 'Următor', newEvent: 'Eveniment Nou', share: 'Distribuie', copied: 'Copiat', copyFailed: 'Eroare copiere', eventLanguage: 'Limba evenimentului', interpretation: 'Interpretare' },
-    sk: { eventCalendar: 'Kalendár Udalostí', prev: 'Predchádzajúci', today: 'Dnes', next: 'Ďalší', newEvent: 'Nová Udalosť', share: 'Zdieľať', copied: 'Skopírované', copyFailed: 'Chyba kopírovania', eventLanguage: 'Jazyk udalosti', interpretation: 'Tlmočenie' },
-    cs: { eventCalendar: 'Kalendář Událostí', prev: 'Předchozí', today: 'Dnes', next: 'Další', newEvent: 'Nová Událost', share: 'Sdílet', copied: 'Zkopírováno', copyFailed: 'Chyba kopírování', eventLanguage: 'Jazyk události', interpretation: 'Tlumočení' }
+    en: { eventCalendar: 'Event Calendar', prev: 'Previous', today: 'Today', next: 'Next', newEvent: 'New Event', share: 'Share', copied: 'Copied', copyFailed: 'Copy failed', eventLanguage: 'Event language', interpretation: 'Interpretation', consultantMeeting: 'consultant meeting', customersGuestsWelcome: 'customers and guests welcome', onlineEvent: 'Online Event', offlineEvent: 'Offline Event', venueAddress: 'Venue Address', audience: 'Audience', customersGuests: 'Customers and guests', consultantsOnly: 'Consultants only', eventMode: 'Event Mode', selectMode: 'Select mode', meetingLink: 'Meeting Link', zoomLink: 'Zoom link', onlineZoomEvent: 'online Zoom event', inPersonMeeting: 'in person meeting' },
+    de: { eventCalendar: 'Ereigniskalender', prev: 'Zurück', today: 'Heute', next: 'Weiter', newEvent: 'Neues Ereignis', share: 'Teilen', copied: 'Kopiert', copyFailed: 'Fehlgeschlagen', eventLanguage: 'Veranstaltungssprache', interpretation: 'Es wird in die folgenden Sprachen übersetzt:', consultantMeeting: 'Beratermeeting', customersGuestsWelcome: 'Kunden und Gäste willkommen', onlineEvent: 'Online-Event', offlineEvent: 'Offline-Event', venueAddress: 'Veranstaltungsort', audience: 'Zielgruppe', customersGuests: 'Kunden und Gäste', consultantsOnly: 'Nur Berater', eventMode: 'Eventmodus', selectMode: 'Modus wählen', meetingLink: 'Meeting-Link', zoomLink: 'Zoom-Link', onlineZoomEvent: 'Online-Zoom-Event', inPersonMeeting: 'Präsenztreffen' },
+    it: { eventCalendar: 'Calendario Eventi', prev: 'Precedente', today: 'Oggi', next: 'Successivo', newEvent: 'Nuovo Evento', share: 'Condividi', copied: 'Copiato', copyFailed: 'Errore copia', eventLanguage: "Lingua dell'evento", interpretation: 'Interpretazione', consultantMeeting: 'riunione consulenti', customersGuestsWelcome: 'clienti e ospiti benvenuti', onlineEvent: 'Evento online', offlineEvent: 'Evento offline', venueAddress: 'Indirizzo sede', audience: 'Pubblico', customersGuests: 'Clienti e ospiti', consultantsOnly: 'Solo consulenti', eventMode: 'Modalità evento', selectMode: 'Seleziona modalità', meetingLink: 'Link riunione', zoomLink: 'Link Zoom', onlineZoomEvent: 'evento Zoom online', inPersonMeeting: 'incontro in presenza' },
+    es: { eventCalendar: 'Calendario de Eventos', prev: 'Anterior', today: 'Hoy', next: 'Siguiente', newEvent: 'Nuevo Evento', share: 'Compartir', copied: 'Copiado', copyFailed: 'Error al copiar', eventLanguage: 'Idioma del evento', interpretation: 'Interpretación', consultantMeeting: 'reunión de consultores', customersGuestsWelcome: 'clientes e invitados bienvenidos', onlineEvent: 'Evento online', offlineEvent: 'Evento presencial', venueAddress: 'Dirección del lugar', audience: 'Público', customersGuests: 'Clientes e invitados', consultantsOnly: 'Solo consultores', eventMode: 'Modo del evento', selectMode: 'Seleccionar modo', meetingLink: 'Enlace de reunión', zoomLink: 'Enlace Zoom', onlineZoomEvent: 'evento Zoom online', inPersonMeeting: 'reunión presencial' },
+    fr: { eventCalendar: 'Calendrier des Événements', prev: 'Précédent', today: "Aujourd'hui", next: 'Suivant', newEvent: 'Nouvel Événement', share: 'Partager', copied: 'Copié', copyFailed: 'Échec copie', eventLanguage: "Langue de l'événement", interpretation: 'Interprétation', consultantMeeting: 'réunion de consultants', customersGuestsWelcome: 'clients et invités bienvenus', onlineEvent: 'Événement en ligne', offlineEvent: 'Événement sur place', venueAddress: 'Adresse du lieu', audience: 'Public', customersGuests: 'Clients et invités', consultantsOnly: 'Consultants uniquement', eventMode: "Mode d'événement", selectMode: 'Choisir le mode', meetingLink: 'Lien de réunion', zoomLink: 'Lien Zoom', onlineZoomEvent: 'événement Zoom en ligne', inPersonMeeting: 'réunion en présentiel' },
+    hu: { eventCalendar: 'Eseménynaptár', prev: 'Előző', today: 'Ma', next: 'Következő', newEvent: 'Új Esemény', share: 'Megosztás', copied: 'Másolva', copyFailed: 'Sikertelen', eventLanguage: 'Esemény nyelve', interpretation: 'Tolmácsolás', consultantMeeting: 'tanácsadói megbeszélés', customersGuestsWelcome: 'ügyfeleket és vendégeket várunk', onlineEvent: 'Online esemény', offlineEvent: 'Személyes esemény', venueAddress: 'Helyszín címe', audience: 'Közönség', customersGuests: 'Ügyfelek és vendégek', consultantsOnly: 'Csak tanácsadók', eventMode: 'Esemény típusa', selectMode: 'Válassz módot', meetingLink: 'Találkozó link', zoomLink: 'Zoom link', onlineZoomEvent: 'online Zoom esemény', inPersonMeeting: 'személyes találkozó' },
+    pt: { eventCalendar: 'Calendário de Eventos', prev: 'Anterior', today: 'Hoje', next: 'Próximo', newEvent: 'Novo Evento', share: 'Partilhar', copied: 'Copiado', copyFailed: 'Falha ao copiar', eventLanguage: 'Idioma do evento', interpretation: 'Interpretação', consultantMeeting: 'reunião de consultores', customersGuestsWelcome: 'clientes e convidados bem-vindos', onlineEvent: 'Evento online', offlineEvent: 'Evento presencial', venueAddress: 'Morada do local', audience: 'Público', customersGuests: 'Clientes e convidados', consultantsOnly: 'Apenas consultores', eventMode: 'Modo do evento', selectMode: 'Selecionar modo', meetingLink: 'Link da reunião', zoomLink: 'Link Zoom', onlineZoomEvent: 'evento Zoom online', inPersonMeeting: 'reunião presencial' },
+    ro: { eventCalendar: 'Calendar Evenimente', prev: 'Anterior', today: 'Astăzi', next: 'Următor', newEvent: 'Eveniment Nou', share: 'Distribuie', copied: 'Copiat', copyFailed: 'Eroare copiere', eventLanguage: 'Limba evenimentului', interpretation: 'Interpretare', consultantMeeting: 'întâlnire consultanți', customersGuestsWelcome: 'clienți și invitați bineveniți', onlineEvent: 'Eveniment online', offlineEvent: 'Eveniment offline', venueAddress: 'Adresa locației', audience: 'Public', customersGuests: 'Clienți și invitați', consultantsOnly: 'Doar consultanți', eventMode: 'Tip eveniment', selectMode: 'Selectează tipul', meetingLink: 'Link întâlnire', zoomLink: 'Link Zoom', onlineZoomEvent: 'eveniment Zoom online', inPersonMeeting: 'întâlnire fizică' },
+    sk: { eventCalendar: 'Kalendár Udalostí', prev: 'Predchádzajúci', today: 'Dnes', next: 'Ďalší', newEvent: 'Nová Udalosť', share: 'Zdieľať', copied: 'Skopírované', copyFailed: 'Chyba kopírovania', eventLanguage: 'Jazyk udalosti', interpretation: 'Tlmočenie', consultantMeeting: 'stretnutie konzultantov', customersGuestsWelcome: 'zákazníci a hostia vítaní', onlineEvent: 'Online udalosť', offlineEvent: 'Prezenčná udalosť', venueAddress: 'Adresa miesta', audience: 'Publikum', customersGuests: 'Zákazníci a hostia', consultantsOnly: 'Len konzultanti', eventMode: 'Typ udalosti', selectMode: 'Vyber typ', meetingLink: 'Odkaz na stretnutie', zoomLink: 'Zoom odkaz', onlineZoomEvent: 'online Zoom udalosť', inPersonMeeting: 'osobné stretnutie' }
 };
 
 function getLang() {
@@ -203,6 +214,19 @@ function applyI18nTexts() {
     byId('todayBtn').textContent = t('today');
     byId('nextBtn').textContent = t('next');
     byId('newEventBtn').textContent = t('newEvent');
+    byId('eventModeLabel').textContent = t('eventMode');
+    byId('eventLinkLabel').textContent = t('meetingLink');
+    byId('eventVenueAddressLabel').textContent = t('venueAddress');
+    byId('eventAudienceTypeLabel').textContent = t('audience');
+    byId('eventAudienceType').options[0].text = t('customersGuests');
+    byId('eventAudienceType').options[1].text = t('consultantsOnly');
+    byId('eventMode').options[1].text = t('onlineEvent');
+    byId('eventMode').options[2].text = t('offlineEvent');
+    byId('eventMode').options[0].text = t('selectMode');
+    const legend = byId('audienceLegend');
+    if (legend) {
+        legend.innerHTML = `<span class="item"><span class="swatch guests"></span>${t('customersGuestsWelcome')}</span><span class="item"><span class="swatch consultants"></span>${t('consultantMeeting')}</span>`;
+    }
     const shareBtn = byId('shareEventBtn');
     if (shareBtn) {
         const txt = shareBtn.textContent.trim();
@@ -216,6 +240,28 @@ function applyI18nTexts() {
     if (byId('eventRecurrenceUntil')) {
         byId('eventRecurrenceUntil').placeholder = isEu ? 'DD/MM/YYYY HH:MM' : 'MM/DD/YYYY HH:MM AM';
     }
+}
+
+function audienceSuffix(eventItem) {
+    if (eventItem?.audience_type === 'consultants') return t('consultantMeeting');
+    return t('customersGuestsWelcome');
+}
+
+function eventDisplayTitle(eventItem) {
+    return eventItem?.title || 'Event';
+}
+
+function isConsultantsOnly(eventItem) {
+    return eventItem?.audience_type === 'consultants';
+}
+
+function eventLanguageOptions() {
+    const byCode = new Map(state.countries.map((c) => [String(c.code || '').toLowerCase(), c]));
+    return EVENT_LANGUAGE_DEFS.map((d) => {
+        const c = byCode.get(d.code);
+        if (!c) return null;
+        return { id: c.id, code: d.code, name: d.name };
+    }).filter(Boolean);
 }
 
 function countriesFlagsRow(codes) {
@@ -308,21 +354,30 @@ function openEventView(eventItem) {
     if (eventItem.image_path) hero.innerHTML = `<img src="${eventItem.image_path}" alt="${eventItem.title || 'Event image'}">`;
     else hero.innerHTML = `<div class="event-view-fallback">${eventItem.title || 'Event'}</div>`;
 
-    byId('eventViewTitle').textContent = eventItem.title || 'Event';
-    byId('eventViewCountriesRow').innerHTML = countriesFlagsRow(eventItem.country_codes || []);
+    byId('eventViewTitle').textContent = eventDisplayTitle(eventItem);
+    const modeBadge = ((eventItem.event_mode || 'online') === 'online') ? t('onlineZoomEvent') : t('inPersonMeeting');
+    byId('eventViewCountriesRow').innerHTML = `${countriesFlagsRow(eventItem.country_codes || [])}<span class="event-mode-badge">${modeBadge}</span>`;
     byId('eventViewCountriesRow').className = 'event-countries-inline';
     byId('eventViewMeta').textContent = formatEventTimeRange(eventItem.start_at, eventItem.end_at);
     byId('eventViewMeta').style.whiteSpace = 'pre-line';
     byId('eventViewRecurrence').textContent = recurrenceSummary(eventItem);
     byId('eventViewDescription').textContent = eventItem.description || '';
-    byId('eventViewLinkWrap').innerHTML = eventItem.event_link ? `<a href="${eventItem.event_link}" target="_blank" rel="noopener">${eventItem.event_link}</a>` : '';
+    const languageNameMap = new Map(EVENT_LANGUAGE_DEFS.map((d) => [d.code, d.name]));
+    const languageName = eventItem.event_language_country_code ? (languageNameMap.get(eventItem.event_language_country_code) || eventItem.event_language_country_code.toUpperCase()) : '';
+    const interpNames = (Array.isArray(eventItem.interpretation_country_codes) ? eventItem.interpretation_country_codes : []).map((c) => languageNameMap.get(c) || String(c).toUpperCase());
+    const languageText = languageName ? `<div><strong>${t('eventLanguage')}:</strong> ${languageName}</div>` : '';
+    const interpText = interpNames.length ? `<div><strong>${t('interpretation')}:</strong> ${interpNames.join(', ')}</div>` : '';
+    byId('eventViewQrWrap').innerHTML = `${languageText}${interpText}`;
 
-    const languageFlag = eventItem.event_language_country_code ? `<div><strong>${t('eventLanguage')}:</strong> <span class="flag-row">${countryFlagHtml(eventItem.event_language_country_code, 'main-language')}</span></div>` : '';
-    const interpFlags = Array.isArray(eventItem.interpretation_country_codes) && eventItem.interpretation_country_codes.length
-        ? `<div><strong>${t('interpretation')}:</strong> ${countriesFlagsRow(eventItem.interpretation_country_codes)}</div>` : '';
-    byId('eventViewQrWrap').innerHTML = `${languageFlag}${interpFlags}`;
+    if ((eventItem.event_mode || 'online') === 'offline') {
+        const venueImg = eventItem.venue_image_path ? `<div><img src="${eventItem.venue_image_path}" alt="Venue photo" style="max-width:100%;border-radius:10px;border:1px solid #d7e4e1;"></div>` : '';
+        const venueAddr = eventItem.venue_address ? `<div><strong>${t('venueAddress')}:</strong> ${String(eventItem.venue_address).replace(/\n/g, '<br>')}</div>` : '';
+        byId('eventViewLinkWrap').innerHTML = `${venueImg}${venueAddr}`;
+    } else {
+        byId('eventViewLinkWrap').innerHTML = eventItem.event_link ? `<a href="${eventItem.event_link}" target="_blank" rel="noopener">${t('zoomLink')}</a>` : '';
+    }
     const qrImg = byId('eventViewQrImg');
-    if (eventItem.event_link) {
+    if ((eventItem.event_mode || 'online') === 'online' && eventItem.event_link) {
         qrImg.src = `https://quickchart.io/qr?size=110&text=${encodeURIComponent(eventItem.event_link)}`;
         qrImg.style.display = 'block';
     } else {
@@ -375,6 +430,23 @@ function setEventFormImagePreview(src) {
     wrap.innerHTML = `<img src="${src}" alt="Event header image preview">`;
 }
 
+function setVenueFormImagePreview(src) {
+    const wrap = byId('eventVenueImagePreview');
+    if (!src) {
+        wrap.style.display = 'none';
+        wrap.innerHTML = '';
+        return;
+    }
+    wrap.style.display = 'block';
+    wrap.innerHTML = `<img src="${src}" alt="Venue image preview">`;
+}
+
+function updateEventModeVisibility() {
+    const mode = byId('eventMode').value;
+    byId('eventOnlineWrap').style.display = mode === 'online' ? 'grid' : 'none';
+    byId('eventOfflineWrap').style.display = mode === 'offline' ? 'grid' : 'none';
+}
+
 function openEventDialog(eventItem = null, prefillDate = null) {
     if (!eventItem && !state.user) return;
     if (eventItem && (!state.user || !eventItem.can_edit)) return openEventView(eventItem);
@@ -385,7 +457,12 @@ function openEventDialog(eventItem = null, prefillDate = null) {
     byId('eventId').value = eventItem ? eventItem.id : '';
     byId('eventTitle').value = eventItem?.title || '';
     byId('eventDescription').value = eventItem?.description || '';
-    byId('eventLink').value = eventItem?.event_link || '';
+    byId('eventLinkOnline').value = eventItem?.event_link || '';
+    byId('eventMode').value = eventItem ? (eventItem.event_mode || 'online') : '';
+    byId('eventVenueAddress').value = eventItem?.venue_address || '';
+    byId('eventVenueImage').value = '';
+    setVenueFormImagePreview(eventItem?.venue_image_path || null);
+    byId('eventAudienceType').value = eventItem?.audience_type || 'customers_guests';
     byId('eventImage').value = '';
     setEventFormImagePreview(eventItem?.image_path || null);
 
@@ -429,6 +506,7 @@ function openEventDialog(eventItem = null, prefillDate = null) {
     }
 
     byId('deleteEventBtn').hidden = !(eventItem && eventItem.can_edit);
+    updateEventModeVisibility();
     updateRecurrenceVisibility();
     byId('eventDialog').showModal();
 }
@@ -440,8 +518,9 @@ function renderList(events) {
     wrap.className = 'list-view';
     events.forEach((e) => {
         const card = document.createElement('article');
-        card.className = 'event-card is-clickable';
-        card.innerHTML = `<h4>${e.title}</h4>
+        card.className = `event-card is-clickable ${isConsultantsOnly(e) ? 'audience-consultants' : 'audience-guests'}`;
+        card.title = audienceSuffix(e);
+        card.innerHTML = `<h4>${eventDisplayTitle(e)}</h4>
             <p class="event-meta">${formatEventTimeRange(e.start_at, e.end_at).replace('\n', ' | ')}</p>
             <p>${e.description || ''}</p>`;
         card.addEventListener('click', () => openEventDialog(e));
@@ -472,9 +551,10 @@ function renderMonthLike(anchor) {
         cell.appendChild(num);
         eventsForDate(d).slice(0, 4).forEach((e) => {
             const pill = document.createElement('div');
-            pill.className = 'event-pill';
+            pill.className = `event-pill ${isConsultantsOnly(e) ? 'audience-consultants' : ''}`;
+            pill.title = audienceSuffix(e);
             const st = parseSqlLocal(e.start_at);
-            pill.textContent = `${String(st.getHours()).padStart(2, '0')}:${String(st.getMinutes()).padStart(2, '0')} ${e.title}`;
+            pill.textContent = `${String(st.getHours()).padStart(2, '0')}:${String(st.getMinutes()).padStart(2, '0')} ${eventDisplayTitle(e)}`;
             pill.addEventListener('click', () => openEventDialog(e));
             cell.appendChild(pill);
         });
@@ -532,8 +612,9 @@ async function loadCountries() {
     state.countries = data.countries;
     byId('countryFilter').innerHTML = ['<option value="">All Countries</option>', ...state.countries.map((c) => `<option value="${c.id}">${c.name}</option>`)].join('');
     byId('eventCountry').innerHTML = state.countries.map((c) => `<option value="${c.id}" data-code="${c.code}">${c.name}</option>`).join('');
-    byId('eventLanguageCountry').innerHTML = ['<option value="">Select language</option>', ...state.countries.map((c) => `<option value="${c.code}">${c.name}</option>`)].join('');
-    byId('eventInterpretationCountries').innerHTML = state.countries.map((c) => `<option value="${c.id}" data-code="${c.code}">${c.name}</option>`).join('');
+    const languageOpts = eventLanguageOptions();
+    byId('eventLanguageCountry').innerHTML = ['<option value="">Select language</option>', ...languageOpts.map((c) => `<option value="${c.code}" data-country-id="${c.id}">${c.name}</option>`)].join('');
+    byId('eventInterpretationCountries').innerHTML = languageOpts.map((c) => `<option value="${c.id}" data-code="${c.code}">${c.name}</option>`).join('');
     byId('signupCountry').innerHTML = state.countries.map((c) => `<option value="${c.id}">${c.name}</option>`).join('');
 }
 
@@ -588,6 +669,14 @@ byId('eventImage').addEventListener('change', () => {
     reader.onload = () => setEventFormImagePreview(String(reader.result || ''));
     reader.readAsDataURL(file);
 });
+byId('eventVenueImage').addEventListener('change', () => {
+    const file = byId('eventVenueImage').files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => setVenueFormImagePreview(String(reader.result || ''));
+    reader.readAsDataURL(file);
+});
+byId('eventMode').addEventListener('change', updateEventModeVisibility);
 byId('closeEventViewIconBtn').addEventListener('click', () => byId('eventViewDialog').close());
 byId('eventViewDialog').addEventListener('close', () => updateEventUrl(null));
 byId('eventViewDialog').addEventListener('close', () => { activeViewedEvent = null; });
@@ -639,7 +728,12 @@ byId('eventForm').addEventListener('submit', async (e) => {
         if (byId('eventId').value) form.append('id', byId('eventId').value);
         form.append('title', byId('eventTitle').value.trim());
         form.append('description', byId('eventDescription').value.trim());
-        form.append('event_link', byId('eventLink').value.trim());
+        const mode = byId('eventMode').value.trim();
+        if (mode !== 'online' && mode !== 'offline') throw new Error('Select event mode');
+        form.append('event_mode', mode);
+        form.append('event_link', mode === 'online' ? byId('eventLinkOnline').value.trim() : '');
+        form.append('venue_address', mode === 'offline' ? byId('eventVenueAddress').value.trim() : '');
+        form.append('audience_type', byId('eventAudienceType').value || 'customers_guests');
         form.append('country_ids', JSON.stringify(countryIds));
         form.append('event_language_country_id', String((state.countries.find((c) => c.code === byId('eventLanguageCountry').value) || {}).id || ''));
         form.append('interpretation_country_ids', JSON.stringify(interpIds));
@@ -655,6 +749,8 @@ byId('eventForm').addEventListener('submit', async (e) => {
         }
         const img = byId('eventImage').files[0];
         if (img) form.append('event_image', img);
+        const venueImg = byId('eventVenueImage').files[0];
+        if (venueImg) form.append('venue_image', venueImg);
         const response = await fetch('includes/api/event_save.php', { method: 'POST', body: form });
         const raw = await response.text();
         let data = {};

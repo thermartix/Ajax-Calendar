@@ -7,6 +7,7 @@ session_start();
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Immunotec Zoom and Event calendar</title>
+    <link rel="icon" href="favicon.ico" type="image/x-icon">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
@@ -19,6 +20,7 @@ session_start();
                 <img id="brandLogo" src="assets/logo.png" alt="Immunotec Logo">
                 <div>
                     <h1 id="appTitle">Event Calendar</h1>
+                    <div id="audienceLegend" class="audience-legend"></div>
                 </div>
             </div>
             <div class="header-right">
@@ -64,8 +66,31 @@ session_start();
             <label for="eventDescription">Description</label>
             <textarea id="eventDescription" rows="4" placeholder="Agenda, notes, speakers..."></textarea>
 
-            <label for="eventLink">Event Link</label>
-            <input id="eventLink" type="url" placeholder="https://zoom.us/... or https://event-site.com">
+            <label for="eventMode" id="eventModeLabel">Event Mode</label>
+            <select id="eventMode">
+                <option value="">Select mode</option>
+                <option value="online">Online</option>
+                <option value="offline">Offline</option>
+            </select>
+
+            <div id="eventOnlineWrap">
+                <label for="eventLinkOnline" id="eventLinkLabel">Meeting Link</label>
+                <input id="eventLinkOnline" type="url" placeholder="https://zoom.us/... or https://event-site.com">
+            </div>
+
+            <div id="eventOfflineWrap">
+                <label for="eventVenueAddress" id="eventVenueAddressLabel">Venue Address</label>
+                <textarea id="eventVenueAddress" rows="3" placeholder="Street, city, ZIP..."></textarea>
+                <label for="eventVenueImage" id="eventVenueImageLabel">Venue Photo</label>
+                <input id="eventVenueImage" type="file" accept=".jpg,.jpeg,.png,.webp">
+                <div id="eventVenueImagePreview" class="event-form-image-preview"></div>
+            </div>
+
+            <label for="eventAudienceType" id="eventAudienceTypeLabel">Audience</label>
+            <select id="eventAudienceType">
+                <option value="customers_guests">Customers and guests</option>
+                <option value="consultants">Consultants only</option>
+            </select>
 
             <label for="eventImage">Header Image (1200x420 recommended)</label>
             <input id="eventImage" type="file" accept=".jpg,.jpeg,.png,.webp">

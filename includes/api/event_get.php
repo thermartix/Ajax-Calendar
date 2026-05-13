@@ -32,6 +32,26 @@ $interpCheck = mysqli_query($mysqliConn, "SHOW TABLES LIKE 'event_interpretation
 if ($interpCheck && mysqli_num_rows($interpCheck) > 0) {
     $hasInterpCountries = true;
 }
+$hasEventModeColumn = false;
+$modeCheck = mysqli_query($mysqliConn, "SHOW COLUMNS FROM events LIKE 'event_mode'");
+if ($modeCheck && mysqli_num_rows($modeCheck) > 0) {
+    $hasEventModeColumn = true;
+}
+$hasVenueAddressColumn = false;
+$venueAddressCheck = mysqli_query($mysqliConn, "SHOW COLUMNS FROM events LIKE 'venue_address'");
+if ($venueAddressCheck && mysqli_num_rows($venueAddressCheck) > 0) {
+    $hasVenueAddressColumn = true;
+}
+$hasVenueImagePathColumn = false;
+$venueImageCheck = mysqli_query($mysqliConn, "SHOW COLUMNS FROM events LIKE 'venue_image_path'");
+if ($venueImageCheck && mysqli_num_rows($venueImageCheck) > 0) {
+    $hasVenueImagePathColumn = true;
+}
+$hasAudienceTypeColumn = false;
+$audienceTypeCheck = mysqli_query($mysqliConn, "SHOW COLUMNS FROM events LIKE 'audience_type'");
+if ($audienceTypeCheck && mysqli_num_rows($audienceTypeCheck) > 0) {
+    $hasAudienceTypeColumn = true;
+}
 
 $sql = 'SELECT e.id, e.user_id, e.country_id, c.code AS country_code, c.name AS country_name, e.title, e.description, e.event_link, e.image_path, e.attachment_path, ';
 if ($hasRecurringColumns) {
@@ -47,6 +67,26 @@ if ($hasEventLanguageColumn) {
     $sql .= 'elc.code AS event_language_country_code, elc.name AS event_language_country_name, ';
 } else {
     $sql .= 'NULL AS event_language_country_code, NULL AS event_language_country_name, ';
+}
+if ($hasEventModeColumn) {
+    $sql .= 'e.event_mode, ';
+} else {
+    $sql .= '"online" AS event_mode, ';
+}
+if ($hasVenueAddressColumn) {
+    $sql .= 'e.venue_address, ';
+} else {
+    $sql .= 'NULL AS venue_address, ';
+}
+if ($hasVenueImagePathColumn) {
+    $sql .= 'e.venue_image_path, ';
+} else {
+    $sql .= 'NULL AS venue_image_path, ';
+}
+if ($hasAudienceTypeColumn) {
+    $sql .= 'e.audience_type, ';
+} else {
+    $sql .= '"customers_guests" AS audience_type, ';
 }
 $sql .= 'e.start_at, e.end_at, u.username, u.first_name, u.last_name FROM events e JOIN countries c ON c.id = e.country_id JOIN users u ON u.user_id = e.user_id ';
 if ($hasEventLanguageColumn) {

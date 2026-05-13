@@ -337,6 +337,17 @@ function stepDate(dir) {
 
 function updateRangeLabel() {
     const { start, end } = getRange();
+    if (state.view === 'month') {
+        const monthLocaleMap = { en: 'en-GB', de: 'de-DE', it: 'it-IT', es: 'es-ES', fr: 'fr-FR', hu: 'hu-HU', pt: 'pt-PT', ro: 'ro-RO', sk: 'sk-SK' };
+        const locale = monthLocaleMap[getLang()] || 'en-GB';
+        const monthName = start.toLocaleString(locale, { month: 'long' });
+        const year = start.getFullYear();
+        const dd = String(end.getDate()).padStart(2, '0');
+        const mm = String(end.getMonth() + 1).padStart(2, '0');
+        const yyyy = end.getFullYear();
+        byId('rangeLabel').textContent = `${monthName} ${year} - 01.-${dd}.${mm}.${yyyy}`;
+        return;
+    }
     byId('rangeLabel').textContent = `${formatDateTimeByPreference(start).split(' ')[0]} - ${formatDateTimeByPreference(end).split(' ')[0]}`;
 }
 

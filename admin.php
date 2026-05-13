@@ -4,6 +4,6 @@
 <section class="event-card"><h3>My Profile</h3><label>First Name</label><input id="profileFirst"><label>Last Name</label><input id="profileLast"><button id="saveProfile" class="accent">Save Profile</button></section>
 <section id="adminOnly" hidden>
 <article class="event-card"><h3>User approvals and permissions</h3><div id="usersRoot"></div></article>
-<article class="event-card"><h3>Calendar Timezone</h3><select id="timezoneSelect"></select><button id="saveTimezone" class="accent">Save Timezone</button></article>
+<article class="event-card"><h3>Calendar Timezone</h3><select id="timezoneSelect"></select><label style="display:block;margin-top:10px;"><input type="checkbox" id="showEventAuthorToggle" checked> Show "by author name" on event detail</label><button id="saveTimezone" class="accent">Save Settings</button></article>
 <article class="event-card"><h3>Countries</h3><p>One line per country in format CODE|Name</p><textarea id="countriesText" rows="8"></textarea><br><button id="saveCountries" class="accent">Save Countries</button></article>
 </section><p id="adminMsg"></p></main></div><script src="admin.js"></script></body></html>

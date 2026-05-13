@@ -5,7 +5,8 @@ const state = {
     selectedCountry: '',
     events: [],
     user: null,
-    datetimeFormat: 'eu'
+    datetimeFormat: 'eu',
+    showEventAuthor: true
 };
 const EVENT_LANGUAGE_DEFS = [
     { code: 'en', name: 'English', flagIso: 'gb' },
@@ -378,10 +379,12 @@ function openEventView(eventItem) {
     byId('eventViewMeta').style.whiteSpace = 'pre-line';
     byId('eventViewRecurrence').textContent = recurrenceSummary(eventItem);
     byId('eventViewDescription').textContent = eventItem.description || '';
+    byId('eventViewDescription').style.whiteSpace = 'pre-line';
     const flagIsoByCode = new Map(EVENT_LANGUAGE_DEFS.map((d) => [d.code, d.flagIso]));
     flagIsoByCode.set('gb', 'gb');
-    const languageFlagIso = eventItem.event_language_country_code ? flagIsoByCode.get(eventItem.event_language_country_code) : null;
-    const interpFlagIsos = (Array.isArray(eventItem.interpretation_country_codes) ? eventItem.interpretation_country_codes : []).map((c) => flagIsoByCode.get(c)).filter(Boolean);
+    const languageCode = String(eventItem.event_language_country_code || '').toLowerCase();
+    const languageFlagIso = languageCode ? flagIsoByCode.get(languageCode) : null;
+    const interpFlagIsos = (Array.isArray(eventItem.interpretation_country_codes) ? eventItem.interpretation_country_codes : []).map((c) => flagIsoByCode.get(String(c || '').toLowerCase())).filter(Boolean);
     const languageText = languageFlagIso ? `<div><strong>${t('eventLanguage')}:</strong> <span class="flag-row">${countryFlagHtml(languageFlagIso, 'main-language')}</span></div>` : '';
     const interpText = interpFlagIsos.length ? `<div><strong>${t('interpretation')}:</strong> <div class="flag-row">${interpFlagIsos.map((iso) => countryFlagHtml(iso)).join('')}</div></div>` : '';
     byId('eventViewQrWrap').innerHTML = `${languageText}${interpText}`;
@@ -391,7 +394,7 @@ function openEventView(eventItem) {
         const venueAddr = eventItem.venue_address ? `<div><strong>${t('venueAddress')}:</strong> ${String(eventItem.venue_address).replace(/\n/g, '<br>')}</div>` : '';
         byId('eventViewLinkWrap').innerHTML = `${venueImg}${venueAddr}`;
     } else {
-        byId('eventViewLinkWrap').innerHTML = eventItem.event_link ? `<a href="${eventItem.event_link}" target="_blank" rel="noopener">${t('zoomLink')}</a>` : '';
+        byId('eventViewLinkWrap').innerHTML = eventItem.event_link ? `<strong>${t('zoomLink')}:</strong> <a href="${eventItem.event_link}" target="_blank" rel="noopener">${eventItem.event_link}</a>` : '';
     }
     const qrImg = byId('eventViewQrImg');
     if ((eventItem.event_mode || 'online') === 'online' && eventItem.event_link) {
@@ -401,7 +404,14 @@ function openEventView(eventItem) {
         qrImg.style.display = 'none';
         qrImg.removeAttribute('src');
     }
-    byId('eventViewAuthor').textContent = `by ${eventItem.creator_name || eventItem.username || 'Unknown'}`;
+    const authorEl = byId('eventViewAuthor');
+    if (state.showEventAuthor) {
+        authorEl.textContent = `by ${eventItem.creator_name || eventItem.username || 'Unknown'}`;
+        authorEl.style.display = '';
+    } else {
+        authorEl.textContent = '';
+        authorEl.style.display = 'none';
+    }
 
     byId('shareEventBtn').onclick = async () => {
         const btn = byId('shareEventBtn');
@@ -490,10 +500,10 @@ function openEventDialog(eventItem = null, prefillDate = null) {
     }
     Array.from(byId('eventCountry').options).forEach((opt) => { opt.selected = selectedCountries.has(opt.value); });
 
-    const selectedInterp = new Set((eventItem?.interpretation_country_codes || []).map((code) => String(code)));
+    const selectedInterp = new Set((eventItem?.interpretation_country_codes || []).map((code) => String(code || '').toLowerCase()));
     Array.from(byId('eventInterpretationCountries').options).forEach((opt) => { opt.selected = selectedInterp.has(opt.dataset.code || ''); });
 
-    byId('eventLanguageCountry').value = eventItem?.event_language_country_code || '';
+    byId('eventLanguageCountry').value = String(eventItem?.event_language_country_code || '').toLowerCase();
     byId('eventRecurrenceType').value = eventItem?.recurrence_type || 'none';
     const recurWeeks = Array.isArray(eventItem?.recur_weeks) && eventItem.recur_weeks.length
         ? eventItem.recur_weeks.map((n) => String(n))
@@ -625,6 +635,15 @@ async function loadSession() {
     applyI18nTexts();
 }
 
+async function loadSettings() {
+    try {
+        const s = await api('includes/api/settings.php');
+        state.showEventAuthor = s.showEventAuthor !== false;
+    } catch (err) {
+        state.showEventAuthor = true;
+    }
+}
+
 async function loadCountries() {
     const data = await api('includes/api/countries.php');
     state.countries = data.countries;
@@ -660,7 +679,7 @@ async function loadEvents() {
 }
 
 async function refreshCalendar() { await loadEvents(); renderView(); }
-async function bootstrap() { await loadSession(); await loadCountries(); await refreshCalendar(); }
+async function bootstrap() { await loadSession(); await loadSettings(); await loadCountries(); await refreshCalendar(); }
 
 function wireDateInput(textId, pickerId, btnId) {
     const txt = byId(textId);
@@ -753,7 +772,8 @@ byId('eventForm').addEventListener('submit', async (e) => {
         form.append('venue_address', mode === 'offline' ? byId('eventVenueAddress').value.trim() : '');
         form.append('audience_type', byId('eventAudienceType').value || 'customers_guests');
         form.append('country_ids', JSON.stringify(countryIds));
-        form.append('event_language_country_id', String((state.countries.find((c) => c.code === byId('eventLanguageCountry').value) || {}).id || ''));
+        const selectedLanguageCode = String(byId('eventLanguageCountry').value || '').toLowerCase();
+        form.append('event_language_country_id', String((state.countries.find((c) => String(c.code || '').toLowerCase() === selectedLanguageCode) || {}).id || ''));
         form.append('interpretation_country_ids', JSON.stringify(interpIds));
         form.append('start_at', toSqlDateTime(startDate));
         form.append('end_at', toSqlDateTime(endDate));

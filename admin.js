@@ -16,13 +16,14 @@ async function init(){
 
   const settings=await api('includes/api/settings.php');
   byId('timezoneSelect').innerHTML=timezones.map((tz)=>`<option value="${tz}" ${settings.calendarTimezone===tz?'selected':''}>${tz}</option>`).join('');
+  byId('showEventAuthorToggle').checked = settings.showEventAuthor !== false;
 
   await loadCountries();
   if(session.user.role==='admin'){byId('adminOnly').hidden=false; await loadUsers();}
 }
 
 byId('saveProfile').onclick=async()=>{await api('includes/api/profile_update.php',{method:'POST',body:JSON.stringify({first_name:byId('profileFirst').value,last_name:byId('profileLast').value})});byId('adminMsg').textContent='Profile saved';};
-byId('saveTimezone').onclick=async()=>{await api('includes/api/admin_timezone_update.php',{method:'POST',body:JSON.stringify({calendar_timezone:byId('timezoneSelect').value})});byId('adminMsg').textContent='Timezone saved';};
+byId('saveTimezone').onclick=async()=>{await api('includes/api/admin_timezone_update.php',{method:'POST',body:JSON.stringify({calendar_timezone:byId('timezoneSelect').value,show_event_author:byId('showEventAuthorToggle').checked?1:0})});byId('adminMsg').textContent='Settings saved';};
 byId('saveCountries').onclick=async()=>{const items=byId('countriesText').value.split('\n').map(l=>l.trim()).filter(Boolean).map((line)=>{const [code,name]=line.split('|');return {code:(code||'').trim(),name:(name||'').trim()};});await api('includes/api/admin_countries_save.php',{method:'POST',body:JSON.stringify({countries:items})});byId('adminMsg').textContent='Countries saved'; await loadCountries();};
 
 init().catch((e)=>{byId('adminMsg').textContent=e.message;});

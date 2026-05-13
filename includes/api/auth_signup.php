@@ -45,7 +45,12 @@ $userId = mysqli_insert_id($mysqliConn);
 mysqli_stmt_close($stmt);
 
 appSettingSet($mysqliConn, 'user_email_' . $userId, $email);
-$tokenPlain = bin2hex(random_bytes(24));
+$tokenPlain = '';
+try {
+    $tokenPlain = bin2hex(random_bytes(24));
+} catch (Throwable $e) {
+    respond(['success' => false, 'message' => 'Could not initialize email verification token.'], 500);
+}
 $tokenHash = hash('sha256', $tokenPlain);
 appSettingSet($mysqliConn, 'user_email_verify_token_' . $userId, $tokenHash);
 appSettingSet($mysqliConn, 'user_email_verify_expires_' . $userId, (string)(time() + 86400));

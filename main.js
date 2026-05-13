@@ -793,9 +793,9 @@ async function loadSession() {
                 window.location.href = 'admin.php';
                 return;
             }
+            byId('profileDialogTitle').textContent = `Profile of ${state.user.email || state.user.username || ''}`;
             byId('profileFirstName').value = state.user.first_name || '';
             byId('profileLastName').value = state.user.last_name || '';
-            byId('profileEmail').textContent = state.user.email || state.user.username || '';
             byId('profileCountry').value = state.user.country_id ? String(state.user.country_id) : '';
             byId('profileNewPassword').value = '';
             byId('profileNewPassword2').value = '';

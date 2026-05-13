@@ -216,8 +216,8 @@ session_start();
 
     <dialog id="profileDialog">
         <form id="profileForm" method="dialog">
-            <h3>Account Settings</h3>
-            <div class="profile-grid">
+            <h3 id="profileDialogTitle">Profile</h3>
+            <div class="profile-grid profile-stack">
                 <div class="profile-row">
                     <label for="profileFirstName">First Name</label>
                     <input id="profileFirstName">
@@ -225,10 +225,6 @@ session_start();
                 <div class="profile-row">
                     <label for="profileLastName">Last Name</label>
                     <input id="profileLastName">
-                </div>
-                <div class="profile-row">
-                    <label for="profileEmail">E-mail</label>
-                    <p id="profileEmail" class="profile-text"></p>
                 </div>
                 <div class="profile-row" id="profileCountryRow">
                     <label for="profileCountry">Default Country</label>
@@ -244,7 +240,7 @@ session_start();
             </div>
             <div class="profile-password-block">
                 <h4>Change Password</h4>
-                <div class="profile-grid">
+                <div class="profile-grid profile-stack">
                     <div class="profile-row">
                         <label for="profileNewPassword">New Password</label>
                         <input id="profileNewPassword" type="password">

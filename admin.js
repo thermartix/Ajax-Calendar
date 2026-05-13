@@ -91,6 +91,7 @@ byId('saveProfile').onclick = async () => {
         body: JSON.stringify({
             first_name: byId('profileFirst').value,
             last_name: byId('profileLast').value,
+            email: byId('profileEmail').value,
             new_password: pw1
         })
     });

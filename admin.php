@@ -22,14 +22,14 @@
         </header>
 
         <main class="panel" style="padding:16px;">
-            <section class="event-card">
+            <section class="event-card profile-stack">
                 <h3>My Profile</h3>
                 <label for="profileFirst">First Name</label>
                 <input id="profileFirst">
                 <label for="profileLast">Last Name</label>
                 <input id="profileLast">
                 <label for="profileEmail">E-mail</label>
-                <input id="profileEmail" readonly>
+                <input id="profileEmail" type="email">
                 <label for="profileNewPassword">New Password</label>
                 <input id="profileNewPassword" type="password">
                 <label for="profileNewPassword2">Repeat New Password</label>

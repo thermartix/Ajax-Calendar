@@ -2,7 +2,14 @@ const byId = (id) => document.getElementById(id);
 
 async function api(path, options = {}) {
     const r = await fetch(path, { headers: { 'Content-Type': 'application/json' }, ...options });
-    const d = await r.json();
+    const raw = await r.text();
+    let d = null;
+    try {
+        d = raw ? JSON.parse(raw) : {};
+    } catch (err) {
+        const snippet = String(raw || '').replace(/\s+/g, ' ').slice(0, 180);
+        throw new Error(`Server returned invalid response. ${snippet}`);
+    }
     if (!r.ok || d.success === false) throw new Error(d.message || 'Request failed');
     return d;
 }

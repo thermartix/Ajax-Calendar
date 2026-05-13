@@ -49,6 +49,7 @@ async function loadUsers() {
                     <tr>
                         <th>User</th>
                         <th>E-mail</th>
+                        <th>E-mail Confirmed</th>
                         <th>Approved</th>
                         <th>Role</th>
                         <th>Primary Country</th>
@@ -61,6 +62,7 @@ async function loadUsers() {
                         <tr data-user-id="${u.user_id}">
                             <td>${escHtml(u.username)}<br><span class="event-meta">${escHtml((u.first_name || '') + ' ' + (u.last_name || ''))}</span></td>
                             <td><input id="em_${u.user_id}" type="email" value="${escHtml(u.email || u.username || '')}"></td>
+                            <td style="text-align:center;">${u.email_verified ? 'Yes' : 'No'}</td>
                             <td style="text-align:center;"><input id="ap_${u.user_id}" type="checkbox" ${u.is_approved ? 'checked' : ''}></td>
                             <td><select id="ro_${u.user_id}">${roleOptions(u.role === 'category_editor' ? 'editor' : u.role)}</select></td>
                             <td><select id="pc_${u.user_id}">${countryOptions(u.country_id)}</select></td>

@@ -55,7 +55,12 @@ appSettingSet($mysqliConn, 'user_email_verified_' . $userId, '0');
 
 $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
 $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
-$confirmUrl = $scheme . '://' . $host . '/includes/api/auth_verify_email.php?uid=' . urlencode((string)$userId) . '&token=' . urlencode($tokenPlain);
+$scriptName = (string)($_SERVER['SCRIPT_NAME'] ?? '');
+$appBasePath = dirname(dirname(dirname($scriptName)));
+if ($appBasePath === '\\' || $appBasePath === '/' || $appBasePath === '.') {
+    $appBasePath = '';
+}
+$confirmUrl = $scheme . '://' . $host . $appBasePath . '/includes/api/auth_verify_email.php?uid=' . urlencode((string)$userId) . '&token=' . urlencode($tokenPlain);
 $subject = 'Confirm your account email';
 $body = "Hello,\n\nPlease confirm your account by clicking this link:\n{$confirmUrl}\n\nThis link expires in 24 hours.";
 $headers = 'From: no-reply@immeet.ing' . "\r\n" . 'Reply-To: no-reply@immeet.ing' . "\r\n" . 'X-Mailer: PHP/' . phpversion();

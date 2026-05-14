@@ -655,26 +655,58 @@ function renderEventDialogVisitorPanel(eventItem) {
     }
     const overlayText = heroOverlayText(eventItem);
     const soldOutBadge = isSoldOut(eventItem) ? `<div class="hero-overlay-soldout">${t('soldOutBadge')}</div>` : '';
+    const modeBadge = modeAudienceSentence(eventItem);
     const hero = eventItem.image_path
         ? `<div class="event-view-hero"><img src="${escHtml(eventItem.image_path)}" alt="${escHtml(eventItem.title || 'Event image')}"><div class="hero-overlay-note">${escHtml(overlayText)}</div>${soldOutBadge}</div>`
         : `<div class="event-view-hero"><div class="event-view-fallback">${escHtml(eventItem.title || 'Event')}</div></div>`;
-    const modeBadge = modeAudienceSentence(eventItem);
     const ticket = ((eventItem.event_mode || 'online') === 'offline' && eventItem.ticket_url)
-        ? `<p><a href="${escHtml(eventItem.ticket_url)}" target="_blank" rel="noopener" class="ticket-cta"><span class="ticket-icon" aria-hidden="true">&#127915;</span>${isSoldOut(eventItem) ? `${escHtml(t('soldOutYes'))}!` : escHtml(t('getTicketNow'))}</a></p>`
+        ? `<a href="${escHtml(eventItem.ticket_url)}" target="_blank" rel="noopener" class="ticket-cta"><span class="ticket-icon" aria-hidden="true">&#127915;</span>${isSoldOut(eventItem) ? `${escHtml(t('soldOutYes'))}!` : escHtml(t('getTicketNow'))}</a>`
         : '';
-    const linkWrap = ((eventItem.event_mode || 'online') === 'online' && eventItem.event_link)
-        ? `<p><strong>${escHtml(t('zoomLink'))}:</strong> <a href="${escHtml(eventItem.event_link)}" target="_blank" rel="noopener">${escHtml(eventItem.event_link)}</a></p>`
-        : '';
+    const flagIsoByCode = new Map(EVENT_LANGUAGE_DEFS.map((d) => [d.code, d.flagIso]));
+    flagIsoByCode.set('gb', 'gb');
+    const languageCode = String(eventItem.event_language_country_code || '').toLowerCase();
+    const languageFlagIso = languageCode ? flagIsoByCode.get(languageCode) : null;
+    const interpFlagIsos = (Array.isArray(eventItem.interpretation_country_codes) ? eventItem.interpretation_country_codes : []).map((c) => flagIsoByCode.get(String(c || '').toLowerCase())).filter(Boolean);
+    const languageText = languageFlagIso ? `<div><strong>${escHtml(t('eventLanguage'))}:</strong> <span class="flag-row">${countryFlagHtml(languageFlagIso, 'main-language')}</span></div>` : '';
+    const interpText = interpFlagIsos.length ? `<div><strong>${escHtml(t('interpretation'))}:</strong> <div class="flag-row">${interpFlagIsos.map((iso) => countryFlagHtml(iso)).join('')}</div></div>` : '';
+    let linkWrap = '';
+    let qrSrc = '';
+    if ((eventItem.event_mode || 'online') === 'offline') {
+        const venueParts = String(eventItem.venue_address || '').split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
+        const venueName = venueParts.length ? venueParts[0] : '';
+        const venueAddrLines = venueParts.length > 1 ? venueParts.slice(1) : [];
+        const venueImg = eventItem.venue_image_path
+            ? `<div class="venue-image-col"><img src="${escHtml(eventItem.venue_image_path)}" alt="Venue photo"></div>`
+            : '';
+        const venueAddr = eventItem.venue_address
+            ? `<div class="venue-address-col"><strong>${escHtml(t('venueAddress'))}:</strong>${venueName ? `<div class="venue-name">${escHtml(venueName)}</div>` : ''}${venueAddrLines.length ? `<div>${venueAddrLines.map((line) => escHtml(line)).join('<br>')}</div>` : (venueName ? '' : `<div>${escHtml(String(eventItem.venue_address)).replace(/\n/g, '<br>')}</div>`)}</div>`
+            : '';
+        linkWrap = (venueImg || venueAddr) ? `<div class="venue-layout">${venueImg}${venueAddr}</div>` : '';
+    } else if (eventItem.event_link) {
+        linkWrap = `<strong>${escHtml(t('zoomLink'))}:</strong> <a href="${escHtml(eventItem.event_link)}" target="_blank" rel="noopener">${escHtml(eventItem.event_link)}</a>`;
+        qrSrc = `https://quickchart.io/qr?size=110&text=${encodeURIComponent(eventItem.event_link)}`;
+    }
+
     panel.innerHTML = `<article class="event-dialog-visitor-card">
-        ${hero}
-        <div class="event-view-body">
+        <div class="event-view">
+            ${hero}
+            <div class="event-view-body">
             <h3>${escHtml(eventDisplayTitle(eventItem))}</h3>
             <div class="event-countries-inline">${countriesFlagsRow(eventItem.country_codes || [])}<span class="event-mode-badge">${modeBadge}</span></div>
             <p class="event-meta">${formatEventTimeRange(eventItem.start_at, eventItem.end_at).replace('\n', '<br>')}</p>
             <p class="event-meta">${escHtml(recurrenceSummary(eventItem) || '')}</p>
-            ${ticket}
+            <p>${ticket}</p>
             <p style="white-space: pre-line;">${escHtml(eventItem.description || '')}</p>
-            ${linkWrap}
+            <div class="event-view-main">
+                <div class="event-view-info">
+                    <div>${linkWrap}</div>
+                    <div>${languageText}${interpText}</div>
+                </div>
+                <div class="event-view-qr">
+                    ${qrSrc ? `<img src="${qrSrc}" alt="QR code">` : ''}
+                </div>
+            </div>
+            </div>
         </div>
     </article>`;
 }

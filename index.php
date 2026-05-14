@@ -63,8 +63,14 @@ session_start();
                 <h3 id="eventDialogTitle">New Event</h3>
                 <button type="button" id="copyEventBtn" class="accent small-action" hidden>Copy Event</button>
             </div>
+            <div id="eventDialogTabs" class="event-dialog-tabs" hidden>
+                <button type="button" id="eventDialogTabEdit" class="event-dialog-tab is-active">Edit Form</button>
+                <button type="button" id="eventDialogTabVisitor" class="event-dialog-tab">Visitor View</button>
+            </div>
+            <div id="eventDialogVisitorHint" class="event-dialog-visitor-hint" hidden>Visitor view is available for saved events.</div>
             <input type="hidden" id="eventId">
             <input type="hidden" id="copyFromId">
+            <div id="eventDialogEditPanel">
             <div id="eventFormImagePreview" class="event-form-image-preview"></div>
 
             <label for="eventTitle">Title</label>
@@ -179,6 +185,8 @@ session_start();
                     <input id="eventRecurrenceUntilPicker" type="datetime-local" class="picker-proxy">
                 </div>
             </div>
+            </div>
+            <section id="eventDialogVisitorPanel" class="event-dialog-visitor-panel" hidden></section>
 
             <div class="dialog-actions">
                 <button type="button" id="deleteEventBtn" class="danger" hidden>Delete</button>

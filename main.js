@@ -66,6 +66,12 @@ function showErrorWindow(message) {
 }
 
 const byId = (id) => document.getElementById(id);
+const escHtml = (value) => String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 const fmtDate = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
 function parseSqlLocal(iso) {
@@ -593,6 +599,109 @@ function openEventView(eventItem) {
     dlg.showModal();
 }
 
+function canUseDialogTabs() {
+    const role = String(state.user?.role || '');
+    return role === 'admin' || role === 'editor';
+}
+
+function buildPreviewEventFromForm(baseEventItem = null) {
+    const startDate = parseDateInput(byId('eventStart').value);
+    const endDate = parseDateInput(byId('eventEnd').value);
+    const selectedCountryOptions = Array.from(byId('eventCountry').selectedOptions);
+    const countryCodes = selectedCountryOptions.map((o) => String(o.dataset.code || '').toLowerCase()).filter(Boolean);
+    const countryIds = selectedCountryOptions.map((o) => Number(o.value)).filter((n) => n > 0);
+    const interpCodes = Array.from(byId('eventInterpretationCountries').selectedOptions).map((o) => String(o.dataset.code || '').toLowerCase()).filter(Boolean);
+    const formHeroSrc = byId('eventFormImagePreview').querySelector('img')?.getAttribute('src') || '';
+    const formVenueSrc = byId('eventVenueImagePreview').querySelector('img')?.getAttribute('src') || '';
+    const title = byId('eventTitle').value.trim();
+    const mode = getRadioValue('eventMode', 'online');
+
+    return {
+        ...(baseEventItem || {}),
+        id: Number(byId('eventId').value || 0) || (baseEventItem?.id || 0),
+        title: title || (baseEventItem?.title || ''),
+        description: byId('eventDescription').value || '',
+        event_mode: mode,
+        event_link: mode === 'online' ? byId('eventLinkOnline').value.trim() : '',
+        venue_address: mode === 'offline' ? byId('eventVenueAddress').value.trim() : '',
+        ticket_url: mode === 'offline' ? byId('eventTicketUrl').value.trim() : '',
+        venue_image_path: mode === 'offline' ? (formVenueSrc || baseEventItem?.venue_image_path || '') : '',
+        audience_type: getRadioValue('eventAudienceType', 'customers_guests'),
+        sold_out: byId('eventSoldOut').checked ? '1' : '0',
+        country_ids: countryIds,
+        country_codes: countryCodes,
+        event_language_country_code: String(byId('eventLanguageCountry').value || '').toLowerCase(),
+        interpretation_country_codes: interpCodes,
+        start_at: startDate ? toSqlDateTime(startDate) : '',
+        end_at: endDate ? toSqlDateTime(endDate) : '',
+        recurrence_type: byId('eventRecurrenceType').value,
+        recur_weekday: Number(byId('eventRecurWeekday').value || 1),
+        recur_weeks: Array.from(byId('eventRecurWeek').selectedOptions).map((o) => Number(o.value)).filter((n) => n >= 1 && n <= 5),
+        image_path: formHeroSrc || baseEventItem?.image_path || ''
+    };
+}
+
+function refreshEventDialogVisitorPreview() {
+    const id = Number(byId('eventId').value || 0);
+    const baseEvent = state.events.find((e) => Number(e.id) === id) || null;
+    renderEventDialogVisitorPanel(buildPreviewEventFromForm(baseEvent));
+}
+
+function renderEventDialogVisitorPanel(eventItem) {
+    const panel = byId('eventDialogVisitorPanel');
+    if (!eventItem) {
+        panel.innerHTML = '';
+        return;
+    }
+    const overlayText = heroOverlayText(eventItem);
+    const soldOutBadge = isSoldOut(eventItem) ? `<div class="hero-overlay-soldout">${t('soldOutBadge')}</div>` : '';
+    const hero = eventItem.image_path
+        ? `<div class="event-view-hero"><img src="${escHtml(eventItem.image_path)}" alt="${escHtml(eventItem.title || 'Event image')}"><div class="hero-overlay-note">${escHtml(overlayText)}</div>${soldOutBadge}</div>`
+        : `<div class="event-view-hero"><div class="event-view-fallback">${escHtml(eventItem.title || 'Event')}</div></div>`;
+    const modeBadge = modeAudienceSentence(eventItem);
+    const ticket = ((eventItem.event_mode || 'online') === 'offline' && eventItem.ticket_url)
+        ? `<p><a href="${escHtml(eventItem.ticket_url)}" target="_blank" rel="noopener" class="ticket-cta"><span class="ticket-icon" aria-hidden="true">&#127915;</span>${isSoldOut(eventItem) ? `${escHtml(t('soldOutYes'))}!` : escHtml(t('getTicketNow'))}</a></p>`
+        : '';
+    const linkWrap = ((eventItem.event_mode || 'online') === 'online' && eventItem.event_link)
+        ? `<p><strong>${escHtml(t('zoomLink'))}:</strong> <a href="${escHtml(eventItem.event_link)}" target="_blank" rel="noopener">${escHtml(eventItem.event_link)}</a></p>`
+        : '';
+    panel.innerHTML = `<article class="event-dialog-visitor-card">
+        ${hero}
+        <div class="event-view-body">
+            <h3>${escHtml(eventDisplayTitle(eventItem))}</h3>
+            <div class="event-countries-inline">${countriesFlagsRow(eventItem.country_codes || [])}<span class="event-mode-badge">${modeBadge}</span></div>
+            <p class="event-meta">${formatEventTimeRange(eventItem.start_at, eventItem.end_at).replace('\n', '<br>')}</p>
+            <p class="event-meta">${escHtml(recurrenceSummary(eventItem) || '')}</p>
+            ${ticket}
+            <p style="white-space: pre-line;">${escHtml(eventItem.description || '')}</p>
+            ${linkWrap}
+        </div>
+    </article>`;
+}
+
+function setEventDialogTab(tabName, eventItem = null) {
+    const editTab = byId('eventDialogTabEdit');
+    const visitorTab = byId('eventDialogTabVisitor');
+    const editPanel = byId('eventDialogEditPanel');
+    const visitorPanel = byId('eventDialogVisitorPanel');
+    const visitorHint = byId('eventDialogVisitorHint');
+    const showVisitor = tabName === 'visitor';
+
+    editTab.classList.toggle('is-active', !showVisitor);
+    visitorTab.classList.toggle('is-active', showVisitor);
+    editPanel.hidden = showVisitor;
+    visitorPanel.hidden = !showVisitor;
+    visitorHint.hidden = true;
+
+    if (showVisitor) {
+        if (eventItem || byId('eventId').value || byId('eventTitle').value.trim()) refreshEventDialogVisitorPreview();
+        else {
+            visitorPanel.innerHTML = '';
+            visitorHint.hidden = false;
+        }
+    }
+}
+
 function fillDateField(fieldId, pickerId, dateObj) {
     if (!dateObj) {
         byId(fieldId).value = '';
@@ -700,6 +809,14 @@ function openEventDialog(eventItem = null, prefillDate = null) {
 
     byId('deleteEventBtn').hidden = !(eventItem && eventItem.can_edit);
     byId('copyEventBtn').hidden = !(eventItem && eventItem.can_edit);
+    const allowTabs = canUseDialogTabs();
+    byId('eventDialogTabs').hidden = !allowTabs;
+    byId('eventDialogVisitorHint').hidden = true;
+    if (allowTabs) setEventDialogTab('edit', eventItem);
+    else {
+        byId('eventDialogEditPanel').hidden = false;
+        byId('eventDialogVisitorPanel').hidden = true;
+    }
     updateEventModeVisibility();
     updateRecurrenceVisibility();
     byId('eventDialog').showModal();
@@ -886,7 +1003,17 @@ byId('prevBtn').addEventListener('click', async () => { stepDate(-1); await refr
 byId('nextBtn').addEventListener('click', async () => { stepDate(1); await refreshCalendar(); });
 byId('todayBtn').addEventListener('click', async () => { state.currentDate = new Date(); await refreshCalendar(); });
 byId('newEventBtn').addEventListener('click', () => openEventDialog());
+byId('eventDialogTabEdit').addEventListener('click', () => setEventDialogTab('edit', state.events.find((e) => Number(e.id) === Number(byId('eventId').value || 0)) || null));
+byId('eventDialogTabVisitor').addEventListener('click', () => setEventDialogTab('visitor', state.events.find((e) => Number(e.id) === Number(byId('eventId').value || 0)) || null));
 byId('cancelEventBtn').addEventListener('click', () => byId('eventDialog').close());
+byId('eventForm').addEventListener('input', () => {
+    if (byId('eventDialogVisitorPanel').hidden) return;
+    refreshEventDialogVisitorPreview();
+});
+byId('eventForm').addEventListener('change', () => {
+    if (byId('eventDialogVisitorPanel').hidden) return;
+    refreshEventDialogVisitorPreview();
+});
 byId('copyEventBtn').addEventListener('click', () => {
     const sourceId = Number(byId('eventId').value || 0);
     if (!sourceId) return;

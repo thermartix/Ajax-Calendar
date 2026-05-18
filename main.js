@@ -26,6 +26,9 @@ let langMenuOpen = false;
 let activeViewedEvent = null;
 let eventFormInitialState = '';
 let unsavedDialogResolver = null;
+let escReleaseRequired = false;
+let eventDialogCloseFlowActive = false;
+let unsavedDialogLastAction = 'cancel';
 
 const LANGUAGES = [
     { code: 'en', name: 'English', countryIso: 'gb' },
@@ -51,15 +54,15 @@ const I18N = {
     sk: { eventCalendar: 'Kalendár Udalostí', prev: 'Predchádzajúci', today: 'Dnes', next: 'Ďalší', newEvent: 'Nová Udalosť', share: 'Zdieľať', copied: 'Skopírované', copyFailed: 'Chyba kopírovania', eventLanguage: 'Jazyk udalosti', interpretation: 'Tlmočenie', consultantMeeting: 'stretnutie konzultantov', consultantTraining: 'školenie konzultantov', consultantMeetingTrainingShort: 'stretnutie/školenie konzultantov', customersGuestsWelcome: 'zákazníci a hostia vítaní', onlineEvent: 'Online udalosť', offlineEvent: 'Prezenčná udalosť', venueAddress: 'Adresa miesta', ticketUrl: 'URL vstupeniek', getTicketNow: 'Získajte si vstupenku teraz!', soldOutLabel: 'Vypredané', soldOutNo: 'Dostupné', soldOutYes: 'Vypredané', soldOutBadge: 'VYPREDANÉ', pastEvent: 'minulé podujatie', audience: 'Publikum', customersGuests: 'Hostia a zákazníci vítaní', consultantsMeeting: 'Stretnutie konzultantov', consultantsTraining: 'Školenie konzultantov', eventMode: 'Typ udalosti', selectMode: 'Vyber typ', meetingLink: 'Odkaz na stretnutie', zoomLink: 'Zoom odkaz', onlineZoomEvent: 'online Zoom udalosť', inPersonMeeting: 'osobné stretnutie', onlineZoomMeetingForConsultants: 'online Zoom stretnutie pre konzultantov', onlineZoomTrainingForConsultants: 'online Zoom školenie pre konzultantov', onlineZoomEventForGuestsCustomers: 'online Zoom udalosť pre hostí a zákazníkov', inPersonMeetingForConsultants: 'osobné stretnutie pre konzultantov', inPersonTrainingForConsultants: 'osobné školenie pre konzultantov', inPersonEventForGuestsCustomers: 'osobná udalosť pre hostí a zákazníkov', guestsCustomersOverlay: 'Hostia a zákazníci vítaní.' }
 };
 const UI_I18N = {
-    en: { unsavedChangesTitle: 'Unsaved changes', unsavedChangesText: 'Do you want to save your changes before closing?', save: 'Save', discard: 'Discard', cancel: 'Cancel' },
-    de: { unsavedChangesTitle: 'Ungespeicherte Änderungen', unsavedChangesText: 'Möchten Sie Ihre Änderungen vor dem Schließen speichern?', save: 'Speichern', discard: 'Verwerfen', cancel: 'Abbrechen' },
-    it: { unsavedChangesTitle: 'Modifiche non salvate', unsavedChangesText: 'Vuoi salvare le modifiche prima di chiudere?', save: 'Salva', discard: 'Scarta', cancel: 'Annulla' },
-    es: { unsavedChangesTitle: 'Cambios sin guardar', unsavedChangesText: '¿Quieres guardar los cambios antes de cerrar?', save: 'Guardar', discard: 'Descartar', cancel: 'Cancelar' },
-    fr: { unsavedChangesTitle: 'Modifications non enregistrées', unsavedChangesText: 'Voulez-vous enregistrer vos modifications avant de fermer ?', save: 'Enregistrer', discard: 'Ignorer', cancel: 'Annuler' },
-    hu: { unsavedChangesTitle: 'Nem mentett módosítások', unsavedChangesText: 'Szeretnéd menteni a módosításokat bezárás előtt?', save: 'Mentés', discard: 'Elvetés', cancel: 'Mégse' },
-    pt: { unsavedChangesTitle: 'Alterações não guardadas', unsavedChangesText: 'Quer guardar as alterações antes de fechar?', save: 'Guardar', discard: 'Descartar', cancel: 'Cancelar' },
-    ro: { unsavedChangesTitle: 'Modificări nesalvate', unsavedChangesText: 'Doriți să salvați modificările înainte de închidere?', save: 'Salvează', discard: 'Renunță', cancel: 'Anulează' },
-    sk: { unsavedChangesTitle: 'Neuložené zmeny', unsavedChangesText: 'Chcete pred zatvorením uložiť zmeny?', save: 'Uložiť', discard: 'Zahodiť', cancel: 'Zrušiť' }
+    en: { unsavedChangesTitle: 'Unsaved changes', unsavedChangesText: 'Do you want to save your changes before closing?', save: 'Save', discard: 'Discard', cancel: 'Cancel', saveKey: 's', discardKey: 'd', cancelKey: 'c' },
+    de: { unsavedChangesTitle: 'Ungespeicherte Änderungen', unsavedChangesText: 'Möchten Sie Ihre Änderungen vor dem Schließen speichern?', save: 'Speichern', discard: 'Verwerfen', cancel: 'Abbrechen', saveKey: 's', discardKey: 'v', cancelKey: 'a' },
+    it: { unsavedChangesTitle: 'Modifiche non salvate', unsavedChangesText: 'Vuoi salvare le modifiche prima di chiudere?', save: 'Salva', discard: 'Scarta', cancel: 'Annulla', saveKey: 's', discardKey: 't', cancelKey: 'a' },
+    es: { unsavedChangesTitle: 'Cambios sin guardar', unsavedChangesText: '¿Quieres guardar los cambios antes de cerrar?', save: 'Guardar', discard: 'Descartar', cancel: 'Cancelar', saveKey: 'g', discardKey: 'd', cancelKey: 'c' },
+    fr: { unsavedChangesTitle: 'Modifications non enregistrées', unsavedChangesText: 'Voulez-vous enregistrer vos modifications avant de fermer ?', save: 'Sauvegarder', discard: 'Ignorer', cancel: 'Annuler', saveKey: 's', discardKey: 'i', cancelKey: 'a' },
+    hu: { unsavedChangesTitle: 'Nem mentett módosítások', unsavedChangesText: 'Szeretnéd menteni a módosításokat bezárás előtt?', save: 'Mentés', discard: 'Elvetés', cancel: 'Mégse', saveKey: 't', discardKey: 'e', cancelKey: 'm' },
+    pt: { unsavedChangesTitle: 'Alterações não guardadas', unsavedChangesText: 'Quer guardar as alterações antes de fechar?', save: 'Guardar', discard: 'Descartar', cancel: 'Cancelar', saveKey: 'g', discardKey: 'd', cancelKey: 'c' },
+    ro: { unsavedChangesTitle: 'Modificări nesalvate', unsavedChangesText: 'Doriți să salvați modificările înainte de închidere?', save: 'Salvează', discard: 'Renunță', cancel: 'Anulează', saveKey: 's', discardKey: 'r', cancelKey: 'a' },
+    sk: { unsavedChangesTitle: 'Neuložené zmeny', unsavedChangesText: 'Chcete pred zatvorením uložiť zmeny?', save: 'Uložiť', discard: 'Zahodiť', cancel: 'Zrušiť', saveKey: 'u', discardKey: 'z', cancelKey: 'r' }
 };
 
 function getLang() {
@@ -70,6 +73,16 @@ function getLang() {
 function t(key) {
     const lang = getLang();
     return I18N[lang]?.[key] || UI_I18N[lang]?.[key] || I18N.en[key] || UI_I18N.en[key] || key;
+}
+
+function unsavedHotkeys() {
+    const lang = getLang();
+    const ui = UI_I18N[lang] || UI_I18N.en;
+    return {
+        save: String(ui.saveKey || UI_I18N.en.saveKey || 's').toLowerCase(),
+        discard: String(ui.discardKey || UI_I18N.en.discardKey || 'd').toLowerCase(),
+        cancel: String(ui.cancelKey || UI_I18N.en.cancelKey || 'c').toLowerCase()
+    };
 }
 
 function showErrorWindow(message) {
@@ -276,9 +289,19 @@ function applyI18nTexts() {
     const unsavedSaveBtn = byId('unsavedSaveBtn');
     const unsavedDiscardBtn = byId('unsavedDiscardBtn');
     const unsavedCancelBtn = byId('unsavedCancelBtn');
-    if (unsavedSaveBtn) unsavedSaveBtn.innerHTML = `${escHtml(t('save'))} (<u>S</u>)`;
-    if (unsavedDiscardBtn) unsavedDiscardBtn.innerHTML = `${escHtml(t('discard'))} (<u>D</u>)`;
-    if (unsavedCancelBtn) unsavedCancelBtn.innerHTML = `${escHtml(t('cancel'))} (<u>C</u>)`;
+    const underlineShortcut = (label, hotkey) => {
+        const txt = String(label || '').trim();
+        if (!txt) return '';
+        const key = String(hotkey || '').trim().toLowerCase();
+        if (!key) return escHtml(txt);
+        const idx = txt.toLowerCase().indexOf(key);
+        if (idx < 0) return `<u>${escHtml(txt.charAt(0))}</u>${escHtml(txt.slice(1))}`;
+        return `${escHtml(txt.slice(0, idx))}<u>${escHtml(txt.charAt(idx))}</u>${escHtml(txt.slice(idx + 1))}`;
+    };
+    const keys = unsavedHotkeys();
+    if (unsavedSaveBtn) unsavedSaveBtn.innerHTML = underlineShortcut(t('save'), keys.save);
+    if (unsavedDiscardBtn) unsavedDiscardBtn.innerHTML = underlineShortcut(t('discard'), keys.discard);
+    if (unsavedCancelBtn) unsavedCancelBtn.innerHTML = underlineShortcut(t('cancel'), keys.cancel);
 }
 
 function getRadioValue(name, fallback = '') {
@@ -853,6 +876,7 @@ function promptUnsavedChangesAction() {
             resolve('cancel');
             return;
         }
+        unsavedDialogLastAction = 'cancel';
         unsavedDialogResolver = resolve;
         dlg.showModal();
         byId('unsavedSaveBtn')?.focus();
@@ -860,6 +884,7 @@ function promptUnsavedChangesAction() {
 }
 
 function resolveUnsavedDialog(action) {
+    unsavedDialogLastAction = String(action || 'cancel');
     const resolve = unsavedDialogResolver;
     unsavedDialogResolver = null;
     const dlg = byId('unsavedChangesDialog');
@@ -870,22 +895,29 @@ function resolveUnsavedDialog(action) {
 }
 
 async function tryCloseEventDialog() {
+    if (eventDialogCloseFlowActive) return false;
     const dlg = byId('eventDialog');
     if (!dlg.open) return true;
+    if (byId('unsavedChangesDialog')?.open) return false;
     if (!canPromptUnsavedEventDialog() || !hasUnsavedEventFormChanges()) {
         dlg.close();
         return true;
     }
-    const action = await promptUnsavedChangesAction();
-    if (action === 'save') {
-        byId('eventForm').requestSubmit();
+    eventDialogCloseFlowActive = true;
+    try {
+        const action = await promptUnsavedChangesAction();
+        if (action === 'save') {
+            byId('eventForm').requestSubmit();
+            return false;
+        }
+        if (action === 'discard') {
+            dlg.close();
+            return true;
+        }
         return false;
+    } finally {
+        eventDialogCloseFlowActive = false;
     }
-    if (action === 'discard') {
-        dlg.close();
-        return true;
-    }
-    return false;
 }
 
 function openEventDialog(eventItem = null, prefillDate = null) {
@@ -1152,6 +1184,8 @@ byId('eventDialogTabVisitor').addEventListener('click', () => setEventDialogTab(
 byId('cancelEventBtn').addEventListener('click', async () => { await tryCloseEventDialog(); });
 byId('eventDialog').addEventListener('cancel', (e) => {
     e.preventDefault();
+    if (byId('unsavedChangesDialog')?.open) return;
+    if (escReleaseRequired) return;
     void tryCloseEventDialog();
 });
 byId('unsavedSaveBtn').addEventListener('click', () => resolveUnsavedDialog('save'));
@@ -1160,29 +1194,33 @@ byId('unsavedCancelBtn').addEventListener('click', () => resolveUnsavedDialog('c
 byId('unsavedChangesDialog').addEventListener('cancel', (e) => {
     e.preventDefault();
     e.stopPropagation();
+    escReleaseRequired = true;
     resolveUnsavedDialog('cancel');
 });
 byId('unsavedChangesDialog').addEventListener('keydown', (e) => {
-    const key = String(e.key || '');
-    if (key === 'Escape') {
+    const keyRaw = String(e.key || '');
+    const key = keyRaw.toLowerCase();
+    const keys = unsavedHotkeys();
+    if (keyRaw === 'Escape') {
         e.preventDefault();
         e.stopPropagation();
+        escReleaseRequired = true;
         resolveUnsavedDialog('cancel');
         return;
     }
-    if (key === 'Enter' || key === 's' || key === 'S') {
+    if (keyRaw === 'Enter' || key === keys.save) {
         e.preventDefault();
         e.stopPropagation();
         resolveUnsavedDialog('save');
         return;
     }
-    if (key === 'd' || key === 'D') {
+    if (key === keys.discard) {
         e.preventDefault();
         e.stopPropagation();
         resolveUnsavedDialog('discard');
         return;
     }
-    if (key === 'c' || key === 'C') {
+    if (key === keys.cancel) {
         e.preventDefault();
         e.stopPropagation();
         resolveUnsavedDialog('cancel');
@@ -1190,6 +1228,13 @@ byId('unsavedChangesDialog').addEventListener('keydown', (e) => {
 });
 byId('unsavedChangesDialog').addEventListener('close', () => {
     if (unsavedDialogResolver) resolveUnsavedDialog('cancel');
+    const editorDlg = byId('eventDialog');
+    if (unsavedDialogLastAction === 'cancel' && editorDlg && !editorDlg.open && hasUnsavedEventFormChanges()) {
+        editorDlg.showModal();
+    }
+});
+document.addEventListener('keyup', (e) => {
+    if (String(e.key || '') === 'Escape') escReleaseRequired = false;
 });
 byId('eventForm').addEventListener('input', () => {
     if (byId('eventDialogVisitorPanel').hidden) return;

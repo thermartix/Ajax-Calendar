@@ -177,6 +177,10 @@ dialog::backdrop { background: rgba(7, 26, 24, 0.55); }
     gap: 8px;
     padding: 16px;
 }
+/* Allow grid children (visitor preview + footer) to shrink inside dialog width. */
+#eventForm > * {
+    min-width: 0;
+}
 #profileForm {
     display: grid;
     gap: 14px;
@@ -274,6 +278,7 @@ dialog::backdrop { background: rgba(7, 26, 24, 0.55); }
 }
 .event-dialog-visitor-panel {
     margin-top: 12px;
+    min-width: 0;
 }
 #eventDialogEditPanel {
     display: grid;
@@ -287,6 +292,7 @@ dialog::backdrop { background: rgba(7, 26, 24, 0.55); }
     border-radius: 12px;
     overflow: hidden;
     background: #fff;
+    min-width: 0;
 }
 .event-dialog-visitor-card .event-view-hero {
     min-height: 220px;
@@ -376,7 +382,13 @@ dialog::backdrop { background: rgba(7, 26, 24, 0.55); }
 }
 
 .auth-grid { grid-template-columns: 1fr 1fr; }
-.dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 10px; }
+.dialog-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 10px;
+    flex-wrap: wrap;
+}
 .admin-users-table {
     width: 100%;
     border-collapse: collapse;
@@ -401,6 +413,12 @@ dialog::backdrop { background: rgba(7, 26, 24, 0.55); }
     position: relative;
     max-height: min(82vh, 760px);
     overflow: auto;
+    min-width: 0;
+}
+/* In admin event dialog visitor tab, avoid nested scrollbars. */
+#eventDialog .event-view {
+    max-height: none;
+    overflow: visible;
 }
 .share-btn {
     position: absolute;
@@ -516,6 +534,11 @@ dialog::backdrop { background: rgba(7, 26, 24, 0.55); }
     grid-template-columns: 1fr 120px;
     gap: 12px;
     align-items: start;
+    min-width: 0;
+}
+.event-dialog-visitor-panel a {
+    overflow-wrap: anywhere;
+    word-break: break-word;
 }
 #eventViewQrWrap { margin-top: 8px; }
 .event-view-qr {

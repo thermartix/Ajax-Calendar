@@ -283,6 +283,18 @@ header('X-Robots-Tag: noindex, nofollow', true);
         </div>
     </dialog>
 
+    <dialog id="unsavedChangesDialog">
+        <div class="error-dialog-body">
+            <h3 id="unsavedChangesTitle">Unsaved changes</h3>
+            <p id="unsavedChangesText">Do you want to save your changes before closing?</p>
+            <div class="dialog-actions">
+                <button type="button" id="unsavedCancelBtn">Cancel</button>
+                <button type="button" id="unsavedDiscardBtn">Discard</button>
+                <button type="button" id="unsavedSaveBtn" class="accent">Save</button>
+            </div>
+        </div>
+    </dialog>
+
     <dialog id="authDialog">
         <div class="auth-grid">
             <section>

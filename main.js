@@ -24,6 +24,8 @@ const EVENT_LANGUAGE_DEFS = [
 let pendingOpenEventId = null;
 let langMenuOpen = false;
 let activeViewedEvent = null;
+let eventFormInitialState = '';
+let unsavedDialogResolver = null;
 
 const LANGUAGES = [
     { code: 'en', name: 'English', countryIso: 'gb' },
@@ -48,6 +50,17 @@ const I18N = {
     ro: { eventCalendar: 'Calendar Evenimente', prev: 'Anterior', today: 'Astăzi', next: 'Următor', newEvent: 'Eveniment Nou', share: 'Distribuie', copied: 'Copiat', copyFailed: 'Eroare copiere', eventLanguage: 'Limba evenimentului', interpretation: 'Interpretare', consultantMeeting: 'întâlnire consultanți', consultantTraining: 'training consultanți', consultantMeetingTrainingShort: 'întâlnire/training consultanți', customersGuestsWelcome: 'clienți și invitați bineveniți', onlineEvent: 'Eveniment online', offlineEvent: 'Eveniment offline', venueAddress: 'Adresa locației', ticketUrl: 'URL bilete', getTicketNow: 'Ia-ți biletul acum!', soldOutLabel: 'Epuizat', soldOutNo: 'Disponibil', soldOutYes: 'Epuizat', soldOutBadge: 'EPUIZAT', pastEvent: 'eveniment trecut', audience: 'Public', customersGuests: 'Invitați și clienți bineveniți', consultantsMeeting: 'Întâlnire consultanți', consultantsTraining: 'Training consultanți', eventMode: 'Tip eveniment', selectMode: 'Selectează tipul', meetingLink: 'Link întâlnire', zoomLink: 'Link Zoom', onlineZoomEvent: 'eveniment Zoom online', inPersonMeeting: 'întâlnire fizică', onlineZoomMeetingForConsultants: 'întâlnire Zoom online pentru consultanți', onlineZoomTrainingForConsultants: 'training Zoom online pentru consultanți', onlineZoomEventForGuestsCustomers: 'eveniment Zoom online pentru invitați și clienți', inPersonMeetingForConsultants: 'întâlnire fizică pentru consultanți', inPersonTrainingForConsultants: 'training fizic pentru consultanți', inPersonEventForGuestsCustomers: 'eveniment fizic pentru invitați și clienți', guestsCustomersOverlay: 'Invitați și clienți bineveniți.' },
     sk: { eventCalendar: 'Kalendár Udalostí', prev: 'Predchádzajúci', today: 'Dnes', next: 'Ďalší', newEvent: 'Nová Udalosť', share: 'Zdieľať', copied: 'Skopírované', copyFailed: 'Chyba kopírovania', eventLanguage: 'Jazyk udalosti', interpretation: 'Tlmočenie', consultantMeeting: 'stretnutie konzultantov', consultantTraining: 'školenie konzultantov', consultantMeetingTrainingShort: 'stretnutie/školenie konzultantov', customersGuestsWelcome: 'zákazníci a hostia vítaní', onlineEvent: 'Online udalosť', offlineEvent: 'Prezenčná udalosť', venueAddress: 'Adresa miesta', ticketUrl: 'URL vstupeniek', getTicketNow: 'Získajte si vstupenku teraz!', soldOutLabel: 'Vypredané', soldOutNo: 'Dostupné', soldOutYes: 'Vypredané', soldOutBadge: 'VYPREDANÉ', pastEvent: 'minulé podujatie', audience: 'Publikum', customersGuests: 'Hostia a zákazníci vítaní', consultantsMeeting: 'Stretnutie konzultantov', consultantsTraining: 'Školenie konzultantov', eventMode: 'Typ udalosti', selectMode: 'Vyber typ', meetingLink: 'Odkaz na stretnutie', zoomLink: 'Zoom odkaz', onlineZoomEvent: 'online Zoom udalosť', inPersonMeeting: 'osobné stretnutie', onlineZoomMeetingForConsultants: 'online Zoom stretnutie pre konzultantov', onlineZoomTrainingForConsultants: 'online Zoom školenie pre konzultantov', onlineZoomEventForGuestsCustomers: 'online Zoom udalosť pre hostí a zákazníkov', inPersonMeetingForConsultants: 'osobné stretnutie pre konzultantov', inPersonTrainingForConsultants: 'osobné školenie pre konzultantov', inPersonEventForGuestsCustomers: 'osobná udalosť pre hostí a zákazníkov', guestsCustomersOverlay: 'Hostia a zákazníci vítaní.' }
 };
+const UI_I18N = {
+    en: { unsavedChangesTitle: 'Unsaved changes', unsavedChangesText: 'Do you want to save your changes before closing?', save: 'Save', discard: 'Discard', cancel: 'Cancel' },
+    de: { unsavedChangesTitle: 'Ungespeicherte Änderungen', unsavedChangesText: 'Möchten Sie Ihre Änderungen vor dem Schließen speichern?', save: 'Speichern', discard: 'Verwerfen', cancel: 'Abbrechen' },
+    it: { unsavedChangesTitle: 'Modifiche non salvate', unsavedChangesText: 'Vuoi salvare le modifiche prima di chiudere?', save: 'Salva', discard: 'Scarta', cancel: 'Annulla' },
+    es: { unsavedChangesTitle: 'Cambios sin guardar', unsavedChangesText: '¿Quieres guardar los cambios antes de cerrar?', save: 'Guardar', discard: 'Descartar', cancel: 'Cancelar' },
+    fr: { unsavedChangesTitle: 'Modifications non enregistrées', unsavedChangesText: 'Voulez-vous enregistrer vos modifications avant de fermer ?', save: 'Enregistrer', discard: 'Ignorer', cancel: 'Annuler' },
+    hu: { unsavedChangesTitle: 'Nem mentett módosítások', unsavedChangesText: 'Szeretnéd menteni a módosításokat bezárás előtt?', save: 'Mentés', discard: 'Elvetés', cancel: 'Mégse' },
+    pt: { unsavedChangesTitle: 'Alterações não guardadas', unsavedChangesText: 'Quer guardar as alterações antes de fechar?', save: 'Guardar', discard: 'Descartar', cancel: 'Cancelar' },
+    ro: { unsavedChangesTitle: 'Modificări nesalvate', unsavedChangesText: 'Doriți să salvați modificările înainte de închidere?', save: 'Salvează', discard: 'Renunță', cancel: 'Anulează' },
+    sk: { unsavedChangesTitle: 'Neuložené zmeny', unsavedChangesText: 'Chcete pred zatvorením uložiť zmeny?', save: 'Uložiť', discard: 'Zahodiť', cancel: 'Zrušiť' }
+};
 
 function getLang() {
     const saved = localStorage.getItem('app_lang') || 'en';
@@ -56,7 +69,7 @@ function getLang() {
 
 function t(key) {
     const lang = getLang();
-    return I18N[lang]?.[key] || I18N.en[key] || key;
+    return I18N[lang]?.[key] || UI_I18N[lang]?.[key] || I18N.en[key] || UI_I18N.en[key] || key;
 }
 
 function showErrorWindow(message) {
@@ -258,6 +271,14 @@ function applyI18nTexts() {
     if (eventRecurrenceUntil) {
         eventRecurrenceUntil.placeholder = isEu ? 'DD/MM/YYYY HH:MM' : 'MM/DD/YYYY HH:MM AM';
     }
+    setText('unsavedChangesTitle', t('unsavedChangesTitle'));
+    setText('unsavedChangesText', t('unsavedChangesText'));
+    const unsavedSaveBtn = byId('unsavedSaveBtn');
+    const unsavedDiscardBtn = byId('unsavedDiscardBtn');
+    const unsavedCancelBtn = byId('unsavedCancelBtn');
+    if (unsavedSaveBtn) unsavedSaveBtn.innerHTML = `${escHtml(t('save'))} (<u>S</u>)`;
+    if (unsavedDiscardBtn) unsavedDiscardBtn.innerHTML = `${escHtml(t('discard'))} (<u>D</u>)`;
+    if (unsavedCancelBtn) unsavedCancelBtn.innerHTML = `${escHtml(t('cancel'))} (<u>C</u>)`;
 }
 
 function getRadioValue(name, fallback = '') {
@@ -777,6 +798,96 @@ function updateEventModeVisibility() {
     byId('eventOfflineWrap').style.display = mode === 'offline' ? 'grid' : 'none';
 }
 
+function canPromptUnsavedEventDialog() {
+    const role = String(state.user?.role || '');
+    return role === 'admin' || role === 'editor';
+}
+
+function captureEventFormState() {
+    const form = byId('eventForm');
+    if (!form) return '';
+    const mode = getRadioValue('eventMode', 'online');
+    const audience = getRadioValue('eventAudienceType', 'customers_guests');
+    const selectedCountries = Array.from(byId('eventCountry').selectedOptions).map((o) => String(o.value)).sort();
+    const selectedInterp = Array.from(byId('eventInterpretationCountries').selectedOptions).map((o) => String(o.value)).sort();
+    const selectedRecurWeeks = Array.from(byId('eventRecurWeek').selectedOptions).map((o) => String(o.value)).sort();
+    const eventImageNames = Array.from(byId('eventImage').files || []).map((f) => String(f.name || ''));
+    const venueImageNames = Array.from(byId('eventVenueImage').files || []).map((f) => String(f.name || ''));
+    const eventImagePreview = byId('eventFormImagePreview').querySelector('img')?.getAttribute('src') || '';
+    const venueImagePreview = byId('eventVenueImagePreview').querySelector('img')?.getAttribute('src') || '';
+    return JSON.stringify({
+        id: byId('eventId').value || '',
+        copyFromId: byId('copyFromId').value || '',
+        title: byId('eventTitle').value || '',
+        description: byId('eventDescription').value || '',
+        eventLinkOnline: byId('eventLinkOnline').value || '',
+        mode,
+        venueAddress: byId('eventVenueAddress').value || '',
+        ticketUrl: byId('eventTicketUrl').value || '',
+        audience,
+        soldOut: !!byId('eventSoldOut').checked,
+        eventLanguageCountry: byId('eventLanguageCountry').value || '',
+        eventStart: byId('eventStart').value || '',
+        eventEnd: byId('eventEnd').value || '',
+        eventRecurrenceType: byId('eventRecurrenceType').value || '',
+        eventRecurrenceUntil: byId('eventRecurrenceUntil').value || '',
+        eventRecurWeekday: byId('eventRecurWeekday').value || '',
+        selectedCountries,
+        selectedInterp,
+        selectedRecurWeeks,
+        eventImageNames,
+        venueImageNames,
+        eventImagePreview,
+        venueImagePreview
+    });
+}
+
+function hasUnsavedEventFormChanges() {
+    return captureEventFormState() !== eventFormInitialState;
+}
+
+function promptUnsavedChangesAction() {
+    return new Promise((resolve) => {
+        const dlg = byId('unsavedChangesDialog');
+        if (!dlg) {
+            resolve('cancel');
+            return;
+        }
+        unsavedDialogResolver = resolve;
+        dlg.showModal();
+        byId('unsavedSaveBtn')?.focus();
+    });
+}
+
+function resolveUnsavedDialog(action) {
+    const resolve = unsavedDialogResolver;
+    unsavedDialogResolver = null;
+    const dlg = byId('unsavedChangesDialog');
+    if (dlg && dlg.open) dlg.close();
+    if (resolve) {
+        resolve(action);
+    }
+}
+
+async function tryCloseEventDialog() {
+    const dlg = byId('eventDialog');
+    if (!dlg.open) return true;
+    if (!canPromptUnsavedEventDialog() || !hasUnsavedEventFormChanges()) {
+        dlg.close();
+        return true;
+    }
+    const action = await promptUnsavedChangesAction();
+    if (action === 'save') {
+        byId('eventForm').requestSubmit();
+        return false;
+    }
+    if (action === 'discard') {
+        dlg.close();
+        return true;
+    }
+    return false;
+}
+
 function openEventDialog(eventItem = null, prefillDate = null) {
     if (!eventItem && !state.user) return;
     if (eventItem && (!state.user || !eventItem.can_edit)) return openEventView(eventItem);
@@ -851,6 +962,7 @@ function openEventDialog(eventItem = null, prefillDate = null) {
     }
     updateEventModeVisibility();
     updateRecurrenceVisibility();
+    eventFormInitialState = captureEventFormState();
     byId('eventDialog').showModal();
 }
 
@@ -1037,7 +1149,48 @@ byId('todayBtn').addEventListener('click', async () => { state.currentDate = new
 byId('newEventBtn').addEventListener('click', () => openEventDialog());
 byId('eventDialogTabEdit').addEventListener('click', () => setEventDialogTab('edit', state.events.find((e) => Number(e.id) === Number(byId('eventId').value || 0)) || null));
 byId('eventDialogTabVisitor').addEventListener('click', () => setEventDialogTab('visitor', state.events.find((e) => Number(e.id) === Number(byId('eventId').value || 0)) || null));
-byId('cancelEventBtn').addEventListener('click', () => byId('eventDialog').close());
+byId('cancelEventBtn').addEventListener('click', async () => { await tryCloseEventDialog(); });
+byId('eventDialog').addEventListener('cancel', (e) => {
+    e.preventDefault();
+    void tryCloseEventDialog();
+});
+byId('unsavedSaveBtn').addEventListener('click', () => resolveUnsavedDialog('save'));
+byId('unsavedDiscardBtn').addEventListener('click', () => resolveUnsavedDialog('discard'));
+byId('unsavedCancelBtn').addEventListener('click', () => resolveUnsavedDialog('cancel'));
+byId('unsavedChangesDialog').addEventListener('cancel', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    resolveUnsavedDialog('cancel');
+});
+byId('unsavedChangesDialog').addEventListener('keydown', (e) => {
+    const key = String(e.key || '');
+    if (key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
+        resolveUnsavedDialog('cancel');
+        return;
+    }
+    if (key === 'Enter' || key === 's' || key === 'S') {
+        e.preventDefault();
+        e.stopPropagation();
+        resolveUnsavedDialog('save');
+        return;
+    }
+    if (key === 'd' || key === 'D') {
+        e.preventDefault();
+        e.stopPropagation();
+        resolveUnsavedDialog('discard');
+        return;
+    }
+    if (key === 'c' || key === 'C') {
+        e.preventDefault();
+        e.stopPropagation();
+        resolveUnsavedDialog('cancel');
+    }
+});
+byId('unsavedChangesDialog').addEventListener('close', () => {
+    if (unsavedDialogResolver) resolveUnsavedDialog('cancel');
+});
 byId('eventForm').addEventListener('input', () => {
     if (byId('eventDialogVisitorPanel').hidden) return;
     refreshEventDialogVisitorPreview();

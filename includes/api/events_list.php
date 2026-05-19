@@ -3,6 +3,16 @@ require_once __DIR__ . '/bootstrap.php';
 $countryFilter = isset($_GET['country_id']) && $_GET['country_id'] !== '' ? (int)$_GET['country_id'] : null;
 $start = $_GET['start'] ?? null;
 $end = $_GET['end'] ?? null;
+$europeCountryId = null;
+$euStmt = mysqli_prepare($mysqliConn, 'SELECT id FROM countries WHERE LOWER(code) = "eu" LIMIT 1');
+if ($euStmt) {
+    mysqli_stmt_execute($euStmt);
+    $euRow = stmtFetchOneAssoc($euStmt);
+    mysqli_stmt_close($euStmt);
+    if ($euRow && isset($euRow['id'])) {
+        $europeCountryId = (int)$euRow['id'];
+    }
+}
 $hasEventCountries = false;
 $hasRecurringColumns = false;
 $hasRecurrenceUntilColumn = false;
@@ -69,6 +79,11 @@ $excCheck = mysqli_query($mysqliConn, "SHOW TABLES LIKE 'event_occurrence_except
 if ($excCheck && mysqli_num_rows($excCheck) > 0) {
     $hasOccurrenceExceptions = true;
 }
+$hasOccurrenceOverrides = false;
+$ovrCheck = mysqli_query($mysqliConn, "SHOW TABLES LIKE 'event_occurrence_overrides'");
+if ($ovrCheck && mysqli_num_rows($ovrCheck) > 0) {
+    $hasOccurrenceOverrides = true;
+}
 
 $sql = 'SELECT e.id, e.user_id, e.country_id, c.code AS country_code, c.name AS country_name, e.title, e.description, e.event_link, e.image_path, e.attachment_path, ';
 if ($hasRecurringColumns) {
@@ -132,13 +147,27 @@ $params = [];
 $types = '';
 
 if ($countryFilter && $hasEventCountries) {
-    $sql .= ' AND EXISTS (SELECT 1 FROM event_countries ecf WHERE ecf.event_id = e.id AND ecf.country_id = ?)';
-    $types .= 'i';
-    $params[] = $countryFilter;
+    if ($europeCountryId && $europeCountryId !== $countryFilter) {
+        $sql .= ' AND EXISTS (SELECT 1 FROM event_countries ecf WHERE ecf.event_id = e.id AND (ecf.country_id = ? OR ecf.country_id = ?))';
+        $types .= 'ii';
+        $params[] = $countryFilter;
+        $params[] = $europeCountryId;
+    } else {
+        $sql .= ' AND EXISTS (SELECT 1 FROM event_countries ecf WHERE ecf.event_id = e.id AND ecf.country_id = ?)';
+        $types .= 'i';
+        $params[] = $countryFilter;
+    }
 } elseif ($countryFilter) {
-    $sql .= ' AND e.country_id = ?';
-    $types .= 'i';
-    $params[] = $countryFilter;
+    if ($europeCountryId && $europeCountryId !== $countryFilter) {
+        $sql .= ' AND (e.country_id = ? OR e.country_id = ?)';
+        $types .= 'ii';
+        $params[] = $countryFilter;
+        $params[] = $europeCountryId;
+    } else {
+        $sql .= ' AND e.country_id = ?';
+        $types .= 'i';
+        $params[] = $countryFilter;
+    }
 }
 if ($start && $hasRecurringColumns) {
     $sql .= ' AND (e.recurrence_type <> "none" OR e.end_at >= ?)';
@@ -224,6 +253,26 @@ function deletedOccurrenceStartSet(mysqli $db, int $eventId, bool $hasOccurrence
     return $set;
 }
 
+function occurrenceOverridesMap(mysqli $db, int $eventId, bool $hasOccurrenceOverrides): array {
+    if (!$hasOccurrenceOverrides) {
+        return [];
+    }
+    $stmt = mysqli_prepare($db, 'SELECT occurrence_start_at, override_json FROM event_occurrence_overrides WHERE event_id = ?');
+    mysqli_stmt_bind_param($stmt, 'i', $eventId);
+    mysqli_stmt_execute($stmt);
+    $rows = stmtFetchAllAssoc($stmt);
+    mysqli_stmt_close($stmt);
+    $map = [];
+    foreach ($rows as $r) {
+        $k = (string)($r['occurrence_start_at'] ?? '');
+        if ($k === '') continue;
+        $decoded = json_decode((string)($r['override_json'] ?? ''), true);
+        if (!is_array($decoded)) continue;
+        $map[$k] = $decoded;
+    }
+    return $map;
+}
+
 $events = [];
 $rangeStart = $start ? new DateTime($start . ' 00:00:00') : null;
 $rangeEnd = $end ? new DateTime($end . ' 23:59:59') : null;
@@ -264,6 +313,7 @@ foreach ($rows as $ev) {
     $baseEnd = new DateTime($ev['end_at']);
     $recurrenceUntil = !empty($ev['recurrence_until']) ? new DateTime($ev['recurrence_until']) : null;
     $deletedStarts = deletedOccurrenceStartSet($mysqliConn, $ev['id'], $hasOccurrenceExceptions);
+    $overrideMap = occurrenceOverridesMap($mysqliConn, $ev['id'], $hasOccurrenceOverrides);
     $durationSeconds = max(0, $baseEnd->getTimestamp() - $baseStart->getTimestamp());
     $nths = [];
     if (!empty($ev['recur_weeks'])) {
@@ -311,6 +361,34 @@ foreach ($rows as $ev) {
                     $inst = $ev;
                     $inst['start_at'] = $occStart->format('Y-m-d H:i:s');
                     $inst['end_at'] = $occEnd->format('Y-m-d H:i:s');
+                    $overrideKey = $inst['start_at'];
+                    if (isset($overrideMap[$overrideKey])) {
+                        $ovr = $overrideMap[$overrideKey];
+                        $fields = [
+                            'title','description','event_link','start_at','end_at','event_mode','venue_address','ticket_url',
+                            'venue_image_path','audience_type','sold_out','event_language_country_code'
+                        ];
+                        foreach ($fields as $f) {
+                            if (array_key_exists($f, $ovr)) {
+                                $inst[$f] = $ovr[$f];
+                            }
+                        }
+                        if (isset($ovr['country_ids']) && is_array($ovr['country_ids'])) {
+                            $inst['country_ids'] = array_values(array_map('intval', $ovr['country_ids']));
+                        }
+                        if (isset($ovr['country_codes']) && is_array($ovr['country_codes'])) {
+                            $inst['country_codes'] = array_values($ovr['country_codes']);
+                        }
+                        if (isset($ovr['country_names']) && is_array($ovr['country_names'])) {
+                            $inst['country_names'] = array_values($ovr['country_names']);
+                        }
+                        if (isset($ovr['interpretation_country_codes']) && is_array($ovr['interpretation_country_codes'])) {
+                            $inst['interpretation_country_codes'] = array_values($ovr['interpretation_country_codes']);
+                        }
+                        $inst['is_occurrence_override'] = true;
+                    } else {
+                        $inst['is_occurrence_override'] = false;
+                    }
                     $events[] = $inst;
                 }
             }

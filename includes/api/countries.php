@@ -22,6 +22,7 @@ function ensureCountry(mysqli $db, string $code, string $name): void {
 
 ensureCountry($mysqliConn, 'EU', 'European Union');
 ensureCountry($mysqliConn, 'CH', 'Switzerland');
+ensureCountry($mysqliConn, 'AT', 'Austria');
 
 $res = mysqli_query($mysqliConn, 'SELECT id, code, name FROM countries ORDER BY name');
 $countries = resultFetchAllAssoc($res);

@@ -23,12 +23,16 @@ const EVENT_LANGUAGE_DEFS = [
 ];
 let pendingOpenEventId = null;
 let langMenuOpen = false;
+let userMenuOpen = false;
 let activeViewedEvent = null;
 let eventFormInitialState = '';
 let unsavedDialogResolver = null;
 let escReleaseRequired = false;
 let eventDialogCloseFlowActive = false;
 let unsavedDialogLastAction = 'cancel';
+let recurringDeleteResolver = null;
+let recurringSaveScopeResolver = null;
+let recurringOverwriteResolver = null;
 
 const LANGUAGES = [
     { code: 'en', name: 'English', countryIso: 'gb' },
@@ -73,6 +77,10 @@ function getLang() {
 function t(key) {
     const lang = getLang();
     return I18N[lang]?.[key] || UI_I18N[lang]?.[key] || I18N.en[key] || UI_I18N.en[key] || key;
+}
+
+function isEuFormat() {
+    return state.datetimeFormat === 'eu';
 }
 
 function unsavedHotkeys() {
@@ -199,6 +207,155 @@ function toLocalInputValue(d) {
     return `${fmtDate(d)}T${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
 
+function dateToInputValue(d) {
+    if (state.datetimeFormat === 'eu') {
+        return `${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}.${d.getFullYear()}`;
+    }
+    return `${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}/${d.getFullYear()}`;
+}
+
+function timeToInputValue(d) {
+    if (state.datetimeFormat !== 'eu') {
+        const h = d.getHours();
+        const m = String(d.getMinutes()).padStart(2, '0');
+        const ap = h >= 12 ? 'PM' : 'AM';
+        const hh = String(((h + 11) % 12) + 1).padStart(2, '0');
+        return `${hh}:${m} ${ap}`;
+    }
+    return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+
+function combineDateAndTime(dateStr, timeStr) {
+    const d = String(dateStr || '').trim();
+    const t = String(timeStr || '').trim();
+    let year = 0, month = 0, day = 0;
+    if (state.datetimeFormat === 'eu') {
+        const m = d.match(/^(\d{1,2})[./](\d{1,2})[./](\d{4})$/);
+        if (!m) return null;
+        day = Number(m[1]); month = Number(m[2]); year = Number(m[3]);
+    } else {
+        const m = d.match(/^(\d{1,2})[./](\d{1,2})[./](\d{4})$/);
+        if (!m) return null;
+        month = Number(m[1]); day = Number(m[2]); year = Number(m[3]);
+    }
+    let hh = 0, mm = 0;
+    if (state.datetimeFormat === 'eu') {
+        const tm = t.match(/^(\d{1,2}):(\d{2})$/);
+        if (!tm) return null;
+        hh = Number(tm[1]); mm = Number(tm[2]);
+    } else {
+        const tm = t.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+        if (!tm) return null;
+        hh = Number(tm[1]) % 12;
+        if (tm[3].toUpperCase() === 'PM') hh += 12;
+        mm = Number(tm[2]);
+    }
+    return new Date(year, month - 1, day, hh, mm, 0, 0);
+}
+
+function normalizeDateTextInput(value) {
+    const raw = String(value || '').trim();
+    if (!raw) return '';
+    const m = raw.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{2}|\d{4})$/);
+    if (!m) return raw;
+    let a = Number(m[1]);
+    let b = Number(m[2]);
+    let y = Number(m[3]);
+    if (y < 100) y += 2000;
+    if (state.datetimeFormat === 'eu') {
+        const dd = String(a).padStart(2, '0');
+        const mm = String(b).padStart(2, '0');
+        return `${dd}.${mm}.${y}`;
+    }
+    const mm = String(a).padStart(2, '0');
+    const dd = String(b).padStart(2, '0');
+    return `${mm}/${dd}/${y}`;
+}
+
+function toIsoDateFromText(value) {
+    const dt = combineDateAndTime(value, state.datetimeFormat === 'eu' ? '00:00' : '12:00 AM');
+    if (!dt) return '';
+    return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
+}
+
+function wireDateTextWithPicker(textId, pickerId, btnId) {
+    const txt = byId(textId);
+    const picker = byId(pickerId);
+    const btn = byId(btnId);
+    const syncTextFromPicker = () => {
+        const iso = String(picker.value || '').trim();
+        if (!iso) return;
+        const d = parseSqlLocal(`${iso} 00:00:00`);
+        if (!d) return;
+        txt.value = dateToInputValue(d);
+    };
+    btn.addEventListener('click', () => {
+        const iso = toIsoDateFromText(txt.value);
+        if (iso) picker.value = iso;
+        if (picker.showPicker) picker.showPicker(); else picker.focus();
+    });
+    picker.addEventListener('change', () => {
+        syncTextFromPicker();
+        txt.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    txt.addEventListener('blur', () => {
+        txt.value = normalizeDateTextInput(txt.value);
+        const iso = toIsoDateFromText(txt.value);
+        if (iso) picker.value = iso;
+    });
+}
+
+function setEventDateTimeInputs(startDate, endDate) {
+    if (!startDate || !endDate) return;
+    byId('eventStartDate').value = dateToInputValue(startDate);
+    byId('eventStartDatePicker').value = `${startDate.getFullYear()}-${String(startDate.getMonth() + 1).padStart(2, '0')}-${String(startDate.getDate()).padStart(2, '0')}`;
+    byId('eventStartTime').value = timeToInputValue(startDate);
+    byId('eventEndTime').value = timeToInputValue(endDate);
+    const isMulti = startDate.getFullYear() !== endDate.getFullYear() || startDate.getMonth() !== endDate.getMonth() || startDate.getDate() !== endDate.getDate();
+    byId('eventMultiDay').checked = isMulti;
+    applyMultiDayVisibility();
+    byId('eventEndDate').value = dateToInputValue(endDate);
+    byId('eventEndDatePicker').value = `${endDate.getFullYear()}-${String(endDate.getMonth() + 1).padStart(2, '0')}-${String(endDate.getDate()).padStart(2, '0')}`;
+    syncLegacyDateFieldsFromNewInputs();
+}
+
+function applyMultiDayVisibility() {
+    const on = !!byId('eventMultiDay').checked;
+    const wrap = byId('eventEndDateWrap');
+    wrap.hidden = !on;
+    wrap.style.display = on ? 'grid' : 'none';
+}
+
+function syncLegacyDateFieldsFromNewInputs() {
+    const startDate = String(byId('eventStartDate').value || '');
+    const startTime = String(byId('eventStartTime').value || '');
+    const endTimeSingle = String(byId('eventEndTime').value || '');
+    const isMulti = !!byId('eventMultiDay').checked;
+    const endDate = isMulti ? String(byId('eventEndDate').value || '') : startDate;
+    const endTime = endTimeSingle;
+
+    if (!isMulti && startDate) byId('eventEndDate').value = startDate;
+    const startIso = toIsoDateFromText(startDate);
+    const endIso = toIsoDateFromText(endDate);
+    if (startIso) byId('eventStartDatePicker').value = startIso;
+    if (endIso) byId('eventEndDatePicker').value = endIso;
+
+    const s = combineDateAndTime(startDate, startTime);
+    const e = combineDateAndTime(endDate, endTime);
+    byId('eventStart').value = s ? formatDateTimeByPreference(s) : '';
+    byId('eventEnd').value = e ? formatDateTimeByPreference(e) : '';
+    byId('eventStartPicker').value = s ? toLocalInputValue(s) : '';
+    byId('eventEndPicker').value = e ? toLocalInputValue(e) : '';
+}
+
+function getStartEndFromEditorInputs() {
+    syncLegacyDateFieldsFromNewInputs();
+    const startDate = combineDateAndTime(byId('eventStartDate').value, byId('eventStartTime').value);
+    const isMulti = !!byId('eventMultiDay').checked;
+    const endDate = combineDateAndTime(isMulti ? byId('eventEndDate').value : byId('eventStartDate').value, byId('eventEndTime').value);
+    return { startDate, endDate };
+}
+
 function countryFlagHtml(code, cls = '') {
     const norm = String(code || '').trim().toLowerCase();
     if (norm === 'dach') {
@@ -214,6 +371,22 @@ function countryFlagHtml(code, cls = '') {
     return `<span class="flag-chip ${cls}">${String(code || '?')}</span>`;
 }
 
+function countryOptionLabel(country) {
+    return String(country?.name || '');
+}
+
+function countryFlagOptionStyle(code) {
+    const norm = String(code || '').trim().toLowerCase();
+    if (!/^[a-z]{2}$/.test(norm)) return '';
+    const url = `https://flagcdn.com/w20/${norm}.png`;
+    return `background-image:url('${url}');background-repeat:no-repeat;background-size:16px 12px;background-position:6px center;padding-left:28px;`;
+}
+
+function optionWithFlag(value, label, code, extraAttrs = '') {
+    const style = countryFlagOptionStyle(code);
+    return `<option value="${escHtml(String(value))}" ${extraAttrs}style="${style}">${escHtml(String(label))}</option>`;
+}
+
 function langFlagImg(iso, alt) {
     const safeIso = String(iso || '').toLowerCase();
     const safeAlt = String(alt || '').replace(/"/g, '&quot;');
@@ -224,7 +397,8 @@ function renderLanguagePicker() {
     const current = LANGUAGES.find((l) => l.code === getLang()) || LANGUAGES.find((l) => l.code === 'en');
     const menu = langMenuOpen ? `<div class="lang-menu">${LANGUAGES.map((l) => `<button class="lang-item" data-lang="${l.code}" title="${l.name}">${langFlagImg(l.countryIso, l.name)}</button>`).join('')}</div>` : '';
     byId('langBlock').innerHTML = `<button id="langToggleBtn" class="lang-toggle" title="Language">${langFlagImg(current.countryIso, current.name)}</button>${menu}`;
-    byId('langToggleBtn').onclick = () => {
+    byId('langToggleBtn').onclick = (e) => {
+        if (e && e.stopPropagation) e.stopPropagation();
         langMenuOpen = !langMenuOpen;
         renderLanguagePicker();
     };
@@ -240,6 +414,71 @@ function renderLanguagePicker() {
             await refreshCalendar();
         });
     });
+}
+
+function renderUserMenu() {
+    const auth = byId('authBlock');
+    if (!auth) return;
+    if (!state.user) {
+        auth.innerHTML = '';
+        return;
+    }
+    const role = String(state.user.role || '');
+    const head = `${state.user.username || ''} ${role ? `(${role})` : ''}`.trim();
+    const menu = userMenuOpen
+        ? `<div class="user-menu">
+            <div class="user-menu-head">${escHtml(head)}</div>
+            <button id="userMenuProfileBtn" class="user-menu-item">Profile</button>
+            ${role === 'admin' ? '<button id="userMenuAdminBtn" class="user-menu-item">Admin panel</button>' : ''}
+            <button id="userMenuLogoutBtn" class="user-menu-item">Logout</button>
+        </div>`
+        : '';
+    auth.innerHTML = `<button id="userMenuToggleBtn" class="menu-toggle" title="Menu">☰</button>${menu}`;
+    byId('userMenuToggleBtn').onclick = (e) => {
+        if (e && e.stopPropagation) e.stopPropagation();
+        userMenuOpen = !userMenuOpen;
+        renderUserMenu();
+    };
+    const menuEl = auth.querySelector('.user-menu');
+    if (menuEl) {
+        menuEl.addEventListener('click', (e) => {
+            if (e && e.stopPropagation) e.stopPropagation();
+        });
+    }
+    const profileBtn = byId('userMenuProfileBtn');
+    if (profileBtn) {
+        profileBtn.onclick = () => {
+            userMenuOpen = false;
+            renderUserMenu();
+            byId('profileDialogTitle').textContent = `Profile of ${state.user.email || state.user.username || ''}`;
+            byId('profileFirstName').value = state.user.first_name || '';
+            byId('profileLastName').value = state.user.last_name || '';
+            byId('profileMemberId').value = state.user.member_id || '';
+            byId('profileCountry').value = state.user.country_id ? String(state.user.country_id) : '';
+            byId('profileNewPassword').value = '';
+            byId('profileNewPassword2').value = '';
+            const showCountry = state.user.role !== 'visitor';
+            const countryRow = byId('profileCountryRow');
+            if (countryRow) countryRow.style.display = showCountry ? '' : 'none';
+            byId('profileDatetimeFormat').value = state.datetimeFormat;
+            byId('profileDialog').showModal();
+        };
+    }
+    const adminBtn = byId('userMenuAdminBtn');
+    if (adminBtn) {
+        adminBtn.onclick = () => {
+            userMenuOpen = false;
+            renderUserMenu();
+            window.location.href = 'admin.php';
+        };
+    }
+    const logoutBtn = byId('userMenuLogoutBtn');
+    if (logoutBtn) {
+        logoutBtn.onclick = async () => {
+            await api('includes/api/auth_logout.php', { method: 'POST', body: '{}' });
+            await bootstrap();
+        };
+    }
 }
 
 function applyI18nTexts() {
@@ -276,14 +515,23 @@ function applyI18nTexts() {
         }
     }
     const isEu = state.datetimeFormat === 'eu';
-    const eventStart = byId('eventStart');
-    if (eventStart) eventStart.placeholder = isEu ? 'DD/MM/YYYY HH:MM' : 'MM/DD/YYYY HH:MM AM';
-    const eventEnd = byId('eventEnd');
-    if (eventEnd) eventEnd.placeholder = isEu ? 'DD/MM/YYYY HH:MM' : 'MM/DD/YYYY HH:MM AM';
     const eventRecurrenceUntil = byId('eventRecurrenceUntil');
     if (eventRecurrenceUntil) {
         eventRecurrenceUntil.placeholder = isEu ? 'DD/MM/YYYY HH:MM' : 'MM/DD/YYYY HH:MM AM';
     }
+    const eventStartDate = byId('eventStartDate');
+    const eventEndDate = byId('eventEndDate');
+    const eventStartTime = byId('eventStartTime');
+    const eventEndTime = byId('eventEndTime');
+    const pickerLocale = isEu ? 'en-GB' : 'en-US';
+    const eventStartDatePicker = byId('eventStartDatePicker');
+    const eventEndDatePicker = byId('eventEndDatePicker');
+    if (eventStartDatePicker) eventStartDatePicker.setAttribute('lang', pickerLocale);
+    if (eventEndDatePicker) eventEndDatePicker.setAttribute('lang', pickerLocale);
+    if (eventStartDate) eventStartDate.placeholder = isEu ? 'DD.MM.YYYY' : 'MM/DD/YYYY';
+    if (eventEndDate) eventEndDate.placeholder = isEu ? 'DD.MM.YYYY' : 'MM/DD/YYYY';
+    if (eventStartTime) eventStartTime.placeholder = isEu ? 'HH:MM' : 'HH:MM AM';
+    if (eventEndTime) eventEndTime.placeholder = isEu ? 'HH:MM' : 'HH:MM AM';
     setText('unsavedChangesTitle', t('unsavedChangesTitle'));
     setText('unsavedChangesText', t('unsavedChangesText'));
     const unsavedSaveBtn = byId('unsavedSaveBtn');
@@ -428,7 +676,7 @@ function rebuildLanguageFilterOptions() {
         eventLanguageCodes(e).forEach((c) => codeSet.add(c));
     });
     const sortedCodes = Array.from(codeSet).sort((a, b) => languageNameByCode(a).localeCompare(languageNameByCode(b)));
-    filter.innerHTML = ['<option value="">All languages</option>', ...sortedCodes.map((c) => `<option value="${c}">${languageNameByCode(c)}</option>`)].join('');
+    filter.innerHTML = ['<option value="">All languages</option>', ...sortedCodes.map((c) => optionWithFlag(c, languageNameByCode(c), c))].join('');
     filter.value = sortedCodes.includes(selected) ? selected : '';
     state.selectedLanguage = filter.value || '';
 }
@@ -441,7 +689,7 @@ async function loadLanguageFilterOptions() {
         const raw = Array.isArray(data?.codes) ? data.codes : [];
         const codes = raw.map((c) => String(c || '').toLowerCase()).filter(Boolean);
         const selected = state.selectedLanguage || '';
-        filter.innerHTML = ['<option value="">All languages</option>', ...codes.sort((a, b) => languageNameByCode(a).localeCompare(languageNameByCode(b))).map((c) => `<option value="${c}">${languageNameByCode(c)}</option>`)].join('');
+        filter.innerHTML = ['<option value="">All languages</option>', ...codes.sort((a, b) => languageNameByCode(a).localeCompare(languageNameByCode(b))).map((c) => optionWithFlag(c, languageNameByCode(c), c))].join('');
         filter.value = codes.includes(selected) ? selected : '';
         state.selectedLanguage = filter.value || '';
     } catch (err) {
@@ -480,7 +728,7 @@ function getRange() {
     const d = new Date(state.currentDate);
     if (state.view === 'day') return { start: new Date(d.getFullYear(), d.getMonth(), d.getDate()), end: new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59) };
     if (state.view === 'week') {
-        const day = (d.getDay() + 6) % 7; // Monday=0 ... Sunday=6
+        const day = isEuFormat() ? ((d.getDay() + 6) % 7) : d.getDay(); // EU Monday-first, US Sunday-first
         const start = new Date(d);
         start.setDate(d.getDate() - day);
         const end = new Date(start);
@@ -509,7 +757,9 @@ function stepDate(dir) {
 function updateRangeLabel() {
     const { start, end } = getRange();
     if (state.view === 'month') {
-        const monthLocaleMap = { en: 'en-GB', de: 'de-DE', it: 'it-IT', es: 'es-ES', fr: 'fr-FR', hu: 'hu-HU', pt: 'pt-PT', ro: 'ro-RO', sk: 'sk-SK' };
+        const monthLocaleMap = isEuFormat()
+            ? { en: 'en-GB', de: 'de-DE', it: 'it-IT', es: 'es-ES', fr: 'fr-FR', hu: 'hu-HU', pt: 'pt-PT', ro: 'ro-RO', sk: 'sk-SK' }
+            : { en: 'en-US', de: 'en-US', it: 'en-US', es: 'en-US', fr: 'en-US', hu: 'en-US', pt: 'en-US', ro: 'en-US', sk: 'en-US' };
         const locale = monthLocaleMap[getLang()] || 'en-GB';
         const rawMonthName = start.toLocaleString(locale, { month: 'long' });
         const monthName = rawMonthName
@@ -519,7 +769,9 @@ function updateRangeLabel() {
         const dd = String(end.getDate()).padStart(2, '0');
         const mm = String(end.getMonth() + 1).padStart(2, '0');
         const yyyy = end.getFullYear();
-        byId('rangeLabel').textContent = `${monthName} ${year}  |  01.-${dd}.${mm}.${yyyy}`;
+        byId('rangeLabel').textContent = isEuFormat()
+            ? `${monthName} ${year}  |  01.-${dd}.${mm}.${yyyy}`
+            : `${monthName} ${year}  |  ${mm}/01/${yyyy}-${mm}/${dd}/${yyyy}`;
         return;
     }
     byId('rangeLabel').textContent = `${formatDateTimeByPreference(start).split(' ')[0]} - ${formatDateTimeByPreference(end).split(' ')[0]}`;
@@ -530,8 +782,8 @@ function monthGrid(anchorDate) {
     const month = anchorDate.getMonth();
     const first = new Date(year, month, 1);
     const start = new Date(first);
-    const mondayIndex = (first.getDay() + 6) % 7; // Monday=0 ... Sunday=6
-    start.setDate(first.getDate() - mondayIndex);
+    const startIndex = isEuFormat() ? ((first.getDay() + 6) % 7) : first.getDay();
+    start.setDate(first.getDate() - startIndex);
     const days = [];
     for (let i = 0; i < 42; i += 1) {
         const d = new Date(start);
@@ -649,8 +901,7 @@ function canUseDialogTabs() {
 }
 
 function buildPreviewEventFromForm(baseEventItem = null) {
-    const startDate = parseDateInput(byId('eventStart').value);
-    const endDate = parseDateInput(byId('eventEnd').value);
+    const { startDate, endDate } = getStartEndFromEditorInputs();
     const selectedCountryOptions = Array.from(byId('eventCountry').selectedOptions);
     const countryCodes = selectedCountryOptions.map((o) => String(o.dataset.code || '').toLowerCase()).filter(Boolean);
     const countryIds = selectedCountryOptions.map((o) => Number(o.value)).filter((n) => n > 0);
@@ -791,6 +1042,66 @@ function fillDateField(fieldId, pickerId, dateObj) {
 function updateRecurrenceVisibility() {
     const show = byId('eventRecurrenceType').value === 'monthly_nth_weekday';
     byId('recurrenceMonthlyWrap').style.display = show ? 'grid' : 'none';
+    if (!show) {
+        byId('hiddenOccurrencesWrap').hidden = true;
+        byId('hiddenOccurrencesBody').innerHTML = '';
+    }
+}
+
+function presetRecurrenceWeekdayFromStartDate() {
+    const startDate = eventStartDateForRecurrencePreset();
+    if (!startDate) return;
+    byId('eventRecurWeekday').value = String(startDate.getDay());
+    const nth = Math.min(5, Math.floor((startDate.getDate() - 1) / 7) + 1);
+    Array.from(byId('eventRecurWeek').options).forEach((opt) => {
+        opt.selected = Number(opt.value) === nth;
+    });
+}
+
+function eventStartDateForRecurrencePreset() {
+    const { startDate } = getStartEndFromEditorInputs();
+    return startDate || null;
+}
+
+function hideHiddenOccurrences() {
+    byId('hiddenOccurrencesWrap').hidden = true;
+    byId('hiddenOccurrencesBody').innerHTML = '';
+}
+
+function renderHiddenOccurrencesRows(occurrenceStarts) {
+    const body = byId('hiddenOccurrencesBody');
+    if (!Array.isArray(occurrenceStarts) || !occurrenceStarts.length) {
+        hideHiddenOccurrences();
+        return;
+    }
+    body.innerHTML = occurrenceStarts.map((startAt) => {
+        const dt = parseSqlLocal(startAt);
+        const label = dt ? formatDateTimeByPreference(dt) : String(startAt || '');
+        return `<tr>
+            <td>${escHtml(label)}</td>
+            <td><button type="button" class="reactivate-occurrence-btn" data-occurrence-start-at="${escHtml(startAt)}">Reactivate</button></td>
+        </tr>`;
+    }).join('');
+    byId('hiddenOccurrencesWrap').hidden = false;
+}
+
+async function loadHiddenOccurrences(eventItem) {
+    if (!eventItem || !eventItem.can_edit || eventItem.recurrence_type !== 'monthly_nth_weekday') {
+        hideHiddenOccurrences();
+        return;
+    }
+    try {
+        const id = Number(eventItem.id || 0);
+        if (!id) {
+            hideHiddenOccurrences();
+            return;
+        }
+        const data = await api(`includes/api/event_occurrence_exceptions.php?id=${encodeURIComponent(String(id))}`);
+        renderHiddenOccurrencesRows(data.occurrences || []);
+    } catch (err) {
+        hideHiddenOccurrences();
+        showErrorWindow(err.message || 'Could not load hidden events');
+    }
 }
 
 function setEventFormImagePreview(src) {
@@ -850,8 +1161,11 @@ function captureEventFormState() {
         audience,
         soldOut: !!byId('eventSoldOut').checked,
         eventLanguageCountry: byId('eventLanguageCountry').value || '',
-        eventStart: byId('eventStart').value || '',
-        eventEnd: byId('eventEnd').value || '',
+        eventStartDate: byId('eventStartDate').value || '',
+        eventStartTime: byId('eventStartTime').value || '',
+        eventEndTime: byId('eventEndTime').value || '',
+        eventMultiDay: !!byId('eventMultiDay').checked,
+        eventEndDate: byId('eventEndDate').value || '',
         eventRecurrenceType: byId('eventRecurrenceType').value || '',
         eventRecurrenceUntil: byId('eventRecurrenceUntil').value || '',
         eventRecurWeekday: byId('eventRecurWeekday').value || '',
@@ -894,6 +1208,103 @@ function resolveUnsavedDialog(action) {
     }
 }
 
+function promptRecurringDeleteAction() {
+    return new Promise((resolve) => {
+        const dlg = byId('recurringDeleteDialog');
+        if (!dlg) {
+            resolve('cancel');
+            return;
+        }
+        recurringDeleteResolver = resolve;
+        dlg.showModal();
+        byId('recurringDeleteOccurrenceBtn')?.focus();
+    });
+}
+
+function resolveRecurringDeleteDialog(action) {
+    const resolve = recurringDeleteResolver;
+    recurringDeleteResolver = null;
+    const dlg = byId('recurringDeleteDialog');
+    if (dlg && dlg.open) dlg.close();
+    if (resolve) resolve(action || 'cancel');
+}
+
+function promptRecurringSaveScopeAction() {
+    return new Promise((resolve) => {
+        const dlg = byId('recurringSaveScopeDialog');
+        if (!dlg) return resolve('cancel');
+        recurringSaveScopeResolver = resolve;
+        dlg.showModal();
+        byId('recurringSaveScopeOccurrenceBtn')?.focus();
+    });
+}
+
+function resolveRecurringSaveScopeDialog(action) {
+    const resolve = recurringSaveScopeResolver;
+    recurringSaveScopeResolver = null;
+    const dlg = byId('recurringSaveScopeDialog');
+    if (dlg && dlg.open) dlg.close();
+    if (resolve) resolve(action || 'cancel');
+}
+
+function promptRecurringOverwriteAction(message) {
+    return new Promise((resolve) => {
+        const dlg = byId('recurringOverwriteOverridesDialog');
+        if (!dlg) return resolve('keep');
+        byId('recurringOverwriteOverridesText').textContent = message;
+        recurringOverwriteResolver = resolve;
+        dlg.showModal();
+        byId('recurringOverwriteNoBtn')?.focus();
+    });
+}
+
+function resolveRecurringOverwriteDialog(action) {
+    const resolve = recurringOverwriteResolver;
+    recurringOverwriteResolver = null;
+    const dlg = byId('recurringOverwriteOverridesDialog');
+    if (dlg && dlg.open) dlg.close();
+    if (resolve) resolve(action || 'keep');
+}
+
+async function canonicalEventForEditing(eventItem) {
+    if (!eventItem || !eventItem.can_edit) return eventItem;
+    if (eventItem.recurrence_type !== 'monthly_nth_weekday') return eventItem;
+    const id = Number(eventItem.id || 0);
+    if (!id) return eventItem;
+    try {
+        const data = await api(`includes/api/event_get.php?id=${encodeURIComponent(String(id))}`);
+        if (!data?.event) return eventItem;
+        return { ...data.event, can_edit: eventItem.can_edit };
+    } catch (err) {
+        return eventItem;
+    }
+}
+
+function buildOccurrenceOverridePayload() {
+    const { startDate, endDate } = getStartEndFromEditorInputs();
+    const countryIds = Array.from(byId('eventCountry').selectedOptions).map((o) => Number(o.value)).filter((n) => n > 0);
+    const countryCodes = Array.from(byId('eventCountry').selectedOptions).map((o) => String(o.dataset.code || '').toLowerCase()).filter(Boolean);
+    const countryNames = Array.from(byId('eventCountry').selectedOptions).map((o) => String(o.dataset.name || o.textContent || '').trim()).filter(Boolean);
+    const interpCodes = Array.from(byId('eventInterpretationCountries').selectedOptions).map((o) => String(o.dataset.code || '').toLowerCase()).filter(Boolean);
+    return {
+        title: byId('eventTitle').value.trim(),
+        description: byId('eventDescription').value.trim(),
+        event_link: byId('eventLinkOnline').value.trim(),
+        start_at: startDate ? toSqlDateTime(startDate) : null,
+        end_at: endDate ? toSqlDateTime(endDate) : null,
+        event_mode: getRadioValue('eventMode', 'online').trim(),
+        venue_address: byId('eventVenueAddress').value.trim(),
+        ticket_url: byId('eventTicketUrl').value.trim(),
+        audience_type: getRadioValue('eventAudienceType', 'customers_guests'),
+        sold_out: byId('eventSoldOut').checked ? 1 : 0,
+        event_language_country_code: String(byId('eventLanguageCountry').value || '').toLowerCase(),
+        country_ids: countryIds,
+        country_codes: countryCodes,
+        country_names: countryNames,
+        interpretation_country_codes: interpCodes
+    };
+}
+
 async function tryCloseEventDialog() {
     if (eventDialogCloseFlowActive) return false;
     const dlg = byId('eventDialog');
@@ -920,60 +1331,77 @@ async function tryCloseEventDialog() {
     }
 }
 
-function openEventDialog(eventItem = null, prefillDate = null) {
+async function openEventDialog(eventItem = null, prefillDate = null) {
     if (!eventItem && !state.user) return;
     if (eventItem && (!state.user || !eventItem.can_edit)) return openEventView(eventItem);
+    const editEvent = await canonicalEventForEditing(eventItem);
 
-    byId('eventDialogTitle').textContent = eventItem ? 'Edit Event' : 'New Event';
-    byId('eventForm').dataset.occurrenceStartAt = eventItem?.start_at || '';
-    byId('eventForm').dataset.recurrenceType = eventItem?.recurrence_type || 'none';
+    const isRecurringOccurrenceEdit = !!(eventItem && editEvent && editEvent.recurrence_type === 'monthly_nth_weekday' && eventItem.start_at && editEvent.start_at && eventItem.start_at !== editEvent.start_at);
+    const sourceEvent = isRecurringOccurrenceEdit ? { ...editEvent, ...eventItem } : editEvent;
+
+    byId('eventDialogTitle').textContent = sourceEvent ? 'Edit Event' : 'New Event';
+    byId('eventForm').dataset.occurrenceStartAt = eventItem?.start_at || sourceEvent?.start_at || '';
+    byId('eventForm').dataset.recurrenceType = sourceEvent?.recurrence_type || 'none';
     byId('copyFromId').value = '';
-    byId('eventId').value = eventItem ? eventItem.id : '';
-    byId('eventTitle').value = eventItem?.title || '';
-    byId('eventDescription').value = eventItem?.description || '';
-    byId('eventLinkOnline').value = eventItem?.event_link || '';
-    setRadioValue('eventMode', eventItem ? (eventItem.event_mode || 'online') : 'online');
-    byId('eventVenueAddress').value = eventItem?.venue_address || '';
-    byId('eventTicketUrl').value = eventItem?.ticket_url || '';
+    byId('eventId').value = sourceEvent ? sourceEvent.id : '';
+    byId('eventTitle').value = sourceEvent?.title || '';
+    byId('eventDescription').value = sourceEvent?.description || '';
+    byId('eventLinkOnline').value = sourceEvent?.event_link || '';
+    setRadioValue('eventMode', sourceEvent ? (sourceEvent.event_mode || 'online') : 'online');
+    byId('eventVenueAddress').value = sourceEvent?.venue_address || '';
+    byId('eventTicketUrl').value = sourceEvent?.ticket_url || '';
     byId('eventVenueImage').value = '';
-    setVenueFormImagePreview(eventItem?.venue_image_path || null);
-    const rawAudience = eventItem?.audience_type || 'customers_guests';
+    setVenueFormImagePreview(sourceEvent?.venue_image_path || null);
+    const rawAudience = sourceEvent?.audience_type || 'customers_guests';
     setRadioValue('eventAudienceType', rawAudience === 'consultants' ? 'consultant_meeting' : rawAudience);
-    byId('eventSoldOut').checked = isSoldOut(eventItem);
+    byId('eventSoldOut').checked = isSoldOut(sourceEvent);
     byId('eventImage').value = '';
-    setEventFormImagePreview(eventItem?.image_path || null);
+    setEventFormImagePreview(sourceEvent?.image_path || null);
 
-    const selectedCountries = new Set((eventItem?.country_ids || []).map((v) => String(v)));
+    const selectedCountries = new Set((sourceEvent?.country_ids || []).map((v) => String(v)));
     if (!selectedCountries.size && (state.user?.country_id || state.selectedCountry)) {
         selectedCountries.add(String(state.user?.country_id || state.selectedCountry));
     }
     Array.from(byId('eventCountry').options).forEach((opt) => { opt.selected = selectedCountries.has(opt.value); });
 
-    const selectedInterp = new Set((eventItem?.interpretation_country_codes || []).map((code) => String(code || '').toLowerCase()));
+    const selectedInterp = new Set((sourceEvent?.interpretation_country_codes || []).map((code) => String(code || '').toLowerCase()));
     Array.from(byId('eventInterpretationCountries').options).forEach((opt) => { opt.selected = selectedInterp.has(opt.dataset.code || ''); });
 
-    byId('eventLanguageCountry').value = String(eventItem?.event_language_country_code || '').toLowerCase();
-    byId('eventRecurrenceType').value = eventItem?.recurrence_type || 'none';
-    const recurWeeks = Array.isArray(eventItem?.recur_weeks) && eventItem.recur_weeks.length
-        ? eventItem.recur_weeks.map((n) => String(n))
-        : [String(eventItem?.recur_week || 1)];
+    byId('eventLanguageCountry').value = String(sourceEvent?.event_language_country_code || '').toLowerCase();
+    byId('eventRecurrenceType').value = sourceEvent?.recurrence_type || 'none';
+    const recurWeeks = Array.isArray(sourceEvent?.recur_weeks) && sourceEvent.recur_weeks.length
+        ? sourceEvent.recur_weeks.map((n) => String(n))
+        : [String(sourceEvent?.recur_week || 1)];
     Array.from(byId('eventRecurWeek').options).forEach((opt) => {
         opt.selected = recurWeeks.includes(opt.value);
     });
-    byId('eventRecurWeekday').value = String(eventItem?.recur_weekday ?? 1);
+    byId('eventRecurWeekday').value = String(sourceEvent?.recur_weekday ?? 1);
+    byId('eventForm').dataset.seriesStartAt = editEvent?.start_at || '';
+    byId('eventForm').dataset.seriesEndAt = editEvent?.end_at || '';
+    byId('eventForm').dataset.isOccurrenceEdit = isRecurringOccurrenceEdit ? '1' : '0';
 
-    if (eventItem) {
-        fillDateField('eventStart', 'eventStartPicker', parseSqlLocal(eventItem.start_at));
-        fillDateField('eventEnd', 'eventEndPicker', parseSqlLocal(eventItem.end_at));
-        fillDateField('eventRecurrenceUntil', 'eventRecurrenceUntilPicker', parseSqlLocal(eventItem.recurrence_until || ''));
+    if (editEvent) {
+        const displayStart = isRecurringOccurrenceEdit ? eventItem.start_at : editEvent.start_at;
+        const displayEnd = isRecurringOccurrenceEdit ? eventItem.end_at : editEvent.end_at;
+        const sDate = parseSqlLocal(displayStart);
+        const eDate = parseSqlLocal(displayEnd);
+        if (sDate && eDate) setEventDateTimeInputs(sDate, eDate);
+        fillDateField('eventRecurrenceUntil', 'eventRecurrenceUntilPicker', parseSqlLocal(editEvent.recurrence_until || ''));
     } else if (prefillDate instanceof Date && !Number.isNaN(prefillDate.getTime())) {
         const startSeed = new Date(prefillDate.getFullYear(), prefillDate.getMonth(), prefillDate.getDate(), 9, 0, 0, 0);
         const endSeed = new Date(prefillDate.getFullYear(), prefillDate.getMonth(), prefillDate.getDate(), 10, 0, 0, 0);
-        fillDateField('eventStart', 'eventStartPicker', startSeed);
-        fillDateField('eventEnd', 'eventEndPicker', endSeed);
+        setEventDateTimeInputs(startSeed, endSeed);
         byId('eventRecurrenceUntil').value = '';
         byId('eventRecurrenceUntilPicker').value = '';
     } else {
+        byId('eventStartDate').value = '';
+        byId('eventStartTime').value = '';
+        byId('eventEndTime').value = '';
+        byId('eventMultiDay').checked = false;
+        applyMultiDayVisibility();
+        byId('eventEndDate').value = '';
+        byId('eventStartDatePicker').value = '';
+        byId('eventEndDatePicker').value = '';
         byId('eventStart').value = '';
         byId('eventEnd').value = '';
         byId('eventStartPicker').value = '';
@@ -982,18 +1410,20 @@ function openEventDialog(eventItem = null, prefillDate = null) {
         byId('eventRecurrenceUntilPicker').value = '';
     }
 
-    byId('deleteEventBtn').hidden = !(eventItem && eventItem.can_edit);
-    byId('copyEventBtn').hidden = !(eventItem && eventItem.can_edit);
+    byId('deleteEventBtn').hidden = !(editEvent && editEvent.can_edit);
+    byId('copyEventBtn').hidden = !(editEvent && editEvent.can_edit);
+    hideHiddenOccurrences();
     const allowTabs = canUseDialogTabs();
     byId('eventDialogTabs').hidden = !allowTabs;
     byId('eventDialogVisitorHint').hidden = true;
-    if (allowTabs) setEventDialogTab('edit', eventItem);
+    if (allowTabs) setEventDialogTab('edit', editEvent);
     else {
         byId('eventDialogEditPanel').hidden = false;
         byId('eventDialogVisitorPanel').hidden = true;
     }
     updateEventModeVisibility();
     updateRecurrenceVisibility();
+    void loadHiddenOccurrences(editEvent);
     eventFormInitialState = captureEventFormState();
     byId('eventDialog').showModal();
 }
@@ -1022,7 +1452,10 @@ function renderMonthLike(anchor) {
     root.innerHTML = '';
     const grid = document.createElement('div');
     grid.className = 'calendar-grid';
-    ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].forEach((d) => {
+    const headers = isEuFormat()
+        ? ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+        : ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    headers.forEach((d) => {
         const h = document.createElement('div');
         h.className = 'day-head';
         h.textContent = d;
@@ -1076,39 +1509,16 @@ async function loadSession() {
     const data = await api('includes/api/auth_session.php');
     state.user = data.user;
     state.datetimeFormat = data.user?.datetime_format === 'us' ? 'us' : 'eu';
-    const auth = byId('authBlock');
     if (!state.user) {
-        auth.innerHTML = '';
+        byId('authBlock').innerHTML = '';
         byId('newEventBtn').hidden = true;
     } else {
-        auth.innerHTML = `<button id="openProfileBtn"><strong>${state.user.username}</strong> (${state.user.role})</button> <button id="logoutBtn">Logout</button>`;
-        byId('openProfileBtn').onclick = () => {
-            if (state.user.role === 'admin') {
-                window.location.href = 'admin.php';
-                return;
-            }
-            byId('profileDialogTitle').textContent = `Profile of ${state.user.email || state.user.username || ''}`;
-            byId('profileFirstName').value = state.user.first_name || '';
-            byId('profileLastName').value = state.user.last_name || '';
-            byId('profileMemberId').value = state.user.member_id || '';
-            byId('profileCountry').value = state.user.country_id ? String(state.user.country_id) : '';
-            byId('profileNewPassword').value = '';
-            byId('profileNewPassword2').value = '';
-            const showCountry = state.user.role !== 'visitor';
-            const countryRow = byId('profileCountryRow');
-            if (countryRow) countryRow.style.display = showCountry ? '' : 'none';
-            byId('profileDatetimeFormat').value = state.datetimeFormat;
-            byId('profileDialog').showModal();
-        };
-        byId('logoutBtn').onclick = async () => {
-            await api('includes/api/auth_logout.php', { method: 'POST', body: '{}' });
-            await bootstrap();
-        };
         const role = String(state.user.role || '');
         const canOpenEditor = role === 'admin' || role === 'editor' || (role === 'category_editor' && Number(state.user.country_id || 0) > 0);
         byId('newEventBtn').hidden = !canOpenEditor;
     }
     renderLanguagePicker();
+    renderUserMenu();
     applyI18nTexts();
 }
 
@@ -1124,13 +1534,14 @@ async function loadSettings() {
 async function loadCountries() {
     const data = await api('includes/api/countries.php');
     state.countries = data.countries;
-    byId('countryFilter').innerHTML = ['<option value="">All Countries</option>', ...state.countries.map((c) => `<option value="${c.id}">${c.name}</option>`)].join('');
-    byId('eventCountry').innerHTML = state.countries.map((c) => `<option value="${c.id}" data-code="${c.code}">${c.name}</option>`).join('');
+    const calendarFilterCountries = state.countries.filter((c) => String(c.code || '').toLowerCase() !== 'eu');
+    byId('countryFilter').innerHTML = ['<option value="">All Countries</option>', ...calendarFilterCountries.map((c) => `<option value="${c.id}" style="${countryFlagOptionStyle(c.code)}">${countryOptionLabel(c)}</option>`)].join('');
+    byId('eventCountry').innerHTML = state.countries.map((c) => `<option value="${c.id}" data-code="${c.code}" data-name="${escHtml(c.name)}" style="${countryFlagOptionStyle(c.code)}">${countryOptionLabel(c)}</option>`).join('');
     const languageOpts = eventLanguageOptions();
-    byId('eventLanguageCountry').innerHTML = ['<option value="">Select language</option>', ...languageOpts.map((c) => `<option value="${c.code}" data-country-id="${c.id}">${c.name}</option>`)].join('');
-    byId('eventInterpretationCountries').innerHTML = languageOpts.map((c) => `<option value="${c.id}" data-code="${c.code}">${c.name}</option>`).join('');
-    byId('signupCountry').innerHTML = state.countries.map((c) => `<option value="${c.id}">${c.name}</option>`).join('');
-    byId('profileCountry').innerHTML = ['<option value="">No default country</option>', ...state.countries.map((c) => `<option value="${c.id}">${c.name}</option>`)].join('');
+    byId('eventLanguageCountry').innerHTML = ['<option value="">Select language</option>', ...languageOpts.map((c) => `<option value="${c.code}" data-country-id="${c.id}" style="${countryFlagOptionStyle(c.code)}">${countryOptionLabel(c)}</option>`)].join('');
+    byId('eventInterpretationCountries').innerHTML = languageOpts.map((c) => `<option value="${c.id}" data-code="${c.code}" style="${countryFlagOptionStyle(c.code)}">${countryOptionLabel(c)}</option>`).join('');
+    byId('signupCountry').innerHTML = state.countries.map((c) => `<option value="${c.id}" style="${countryFlagOptionStyle(c.code)}">${countryOptionLabel(c)}</option>`).join('');
+    byId('profileCountry').innerHTML = ['<option value="">No default country</option>', ...state.countries.map((c) => `<option value="${c.id}" style="${countryFlagOptionStyle(c.code)}">${countryOptionLabel(c)}</option>`)].join('');
     await loadLanguageFilterOptions();
 }
 
@@ -1233,6 +1644,27 @@ byId('unsavedChangesDialog').addEventListener('close', () => {
         editorDlg.showModal();
     }
 });
+byId('recurringDeleteCancelBtn').addEventListener('click', () => resolveRecurringDeleteDialog('cancel'));
+byId('recurringDeleteSeriesBtn').addEventListener('click', () => resolveRecurringDeleteDialog('series'));
+byId('recurringDeleteOccurrenceBtn').addEventListener('click', () => resolveRecurringDeleteDialog('occurrence'));
+byId('recurringDeleteFromHereBtn').addEventListener('click', () => resolveRecurringDeleteDialog('from_here'));
+byId('recurringDeleteDialog').addEventListener('cancel', (e) => {
+    e.preventDefault();
+    resolveRecurringDeleteDialog('cancel');
+});
+byId('recurringSaveScopeCancelBtn').addEventListener('click', () => resolveRecurringSaveScopeDialog('cancel'));
+byId('recurringSaveScopeOccurrenceBtn').addEventListener('click', () => resolveRecurringSaveScopeDialog('occurrence'));
+byId('recurringSaveScopeSeriesBtn').addEventListener('click', () => resolveRecurringSaveScopeDialog('series'));
+byId('recurringSaveScopeDialog').addEventListener('cancel', (e) => {
+    e.preventDefault();
+    resolveRecurringSaveScopeDialog('cancel');
+});
+byId('recurringOverwriteNoBtn').addEventListener('click', () => resolveRecurringOverwriteDialog('keep'));
+byId('recurringOverwriteYesBtn').addEventListener('click', () => resolveRecurringOverwriteDialog('overwrite'));
+byId('recurringOverwriteOverridesDialog').addEventListener('cancel', (e) => {
+    e.preventDefault();
+    resolveRecurringOverwriteDialog('keep');
+});
 document.addEventListener('keyup', (e) => {
     if (String(e.key || '') === 'Escape') escReleaseRequired = false;
 });
@@ -1247,15 +1679,14 @@ byId('eventForm').addEventListener('change', () => {
 byId('copyEventBtn').addEventListener('click', () => {
     const sourceId = Number(byId('eventId').value || 0);
     if (!sourceId) return;
-    const startDate = parseDateInput(byId('eventStart').value);
-    const endDate = parseDateInput(byId('eventEnd').value);
+    const { startDate, endDate } = getStartEndFromEditorInputs();
     if (!startDate || !endDate) {
         showErrorWindow('Current event start/end must be valid before copying.');
         return;
     }
     const durationMs = Math.max(0, endDate.getTime() - startDate.getTime());
     const example = state.datetimeFormat === 'eu' ? 'DD/MM/YYYY HH:MM' : 'MM/DD/YYYY HH:MM AM';
-    const input = window.prompt(`New event start date/time (${example}):`, byId('eventStart').value);
+    const input = window.prompt(`New event start date/time (${example}):`, formatDateTimeByPreference(startDate));
     if (input === null) return;
     const newStart = parseDateInput(input);
     if (!newStart) {
@@ -1263,8 +1694,7 @@ byId('copyEventBtn').addEventListener('click', () => {
         return;
     }
     const newEnd = new Date(newStart.getTime() + durationMs);
-    fillDateField('eventStart', 'eventStartPicker', newStart);
-    fillDateField('eventEnd', 'eventEndPicker', newEnd);
+    setEventDateTimeInputs(newStart, newEnd);
     byId('copyFromId').value = String(sourceId);
     byId('eventId').value = '';
     byId('eventDialogTitle').textContent = 'Copy Event';
@@ -1300,11 +1730,52 @@ byId('copyErrorBtn').addEventListener('click', async () => {
         // keep silent; user can still select and copy manually
     }
 });
+document.addEventListener('click', (e) => {
+    const target = e.target;
+    if (langMenuOpen) {
+        const lb = byId('langBlock');
+        if (lb && !(target instanceof Node && lb.contains(target))) {
+            langMenuOpen = false;
+            renderLanguagePicker();
+        }
+    }
+    if (userMenuOpen) {
+        const ab = byId('authBlock');
+        if (ab && !(target instanceof Node && ab.contains(target))) {
+            userMenuOpen = false;
+            renderUserMenu();
+        }
+    }
+});
 
-wireDateInput('eventStart', 'eventStartPicker', 'eventStartPickBtn');
-wireDateInput('eventEnd', 'eventEndPicker', 'eventEndPickBtn');
 wireDateInput('eventRecurrenceUntil', 'eventRecurrenceUntilPicker', 'eventRecurrenceUntilPickBtn');
-byId('eventRecurrenceType').addEventListener('change', updateRecurrenceVisibility);
+wireDateTextWithPicker('eventStartDate', 'eventStartDatePicker', 'eventStartDatePickBtn');
+wireDateTextWithPicker('eventEndDate', 'eventEndDatePicker', 'eventEndDatePickBtn');
+byId('eventRecurrenceType').addEventListener('change', () => {
+    const previousType = String(byId('eventForm').dataset.recurrenceType || 'none');
+    const currentType = String(byId('eventRecurrenceType').value || 'none');
+    if (currentType === 'monthly_nth_weekday' && previousType !== 'monthly_nth_weekday') {
+        presetRecurrenceWeekdayFromStartDate();
+    }
+    updateRecurrenceVisibility();
+});
+byId('eventStartDate').addEventListener('change', () => {
+    if (!byId('eventMultiDay').checked) byId('eventEndDate').value = byId('eventStartDate').value;
+    syncLegacyDateFieldsFromNewInputs();
+});
+byId('eventStartTime').addEventListener('change', syncLegacyDateFieldsFromNewInputs);
+byId('eventEndTime').addEventListener('change', () => {
+    syncLegacyDateFieldsFromNewInputs();
+});
+byId('eventMultiDay').addEventListener('change', () => {
+    const on = byId('eventMultiDay').checked;
+    applyMultiDayVisibility();
+    if (!on) {
+        byId('eventEndDate').value = byId('eventStartDate').value;
+    }
+    syncLegacyDateFieldsFromNewInputs();
+});
+byId('eventEndDate').addEventListener('change', syncLegacyDateFieldsFromNewInputs);
 
 byId('profileForm').addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -1332,9 +1803,9 @@ byId('profileForm').addEventListener('submit', async (e) => {
 byId('eventForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     try {
-        const startDate = parseDateInput(byId('eventStart').value);
-        const endDate = parseDateInput(byId('eventEnd').value);
+        const { startDate, endDate } = getStartEndFromEditorInputs();
         if (!startDate || !endDate) throw new Error('Invalid date/time format');
+        if (endDate < startDate) throw new Error('End must be after start');
         const countryIds = Array.from(byId('eventCountry').selectedOptions).map((o) => Number(o.value)).filter((n) => n > 0);
         if (!countryIds.length) throw new Error('Select at least one country');
         const interpIds = Array.from(byId('eventInterpretationCountries').selectedOptions).map((o) => Number(o.value)).filter((n) => n > 0);
@@ -1343,6 +1814,44 @@ byId('eventForm').addEventListener('submit', async (e) => {
         const recurrenceUntilDate = recurrenceUntilInput ? parseDateInput(recurrenceUntilInput) : null;
         if (recurrenceUntilInput && !recurrenceUntilDate) throw new Error('Invalid recurrence end date/time format');
         const recurWeeks = Array.from(byId('eventRecurWeek').selectedOptions).map((o) => Number(o.value)).filter((n) => n >= 1 && n <= 5);
+        const eventId = Number(byId('eventId').value || 0);
+        const occurrenceStartAt = String(byId('eventForm').dataset.occurrenceStartAt || '');
+        const seriesStartAt = String(byId('eventForm').dataset.seriesStartAt || '');
+        const isOccurrenceEdit = String(byId('eventForm').dataset.isOccurrenceEdit || '0') === '1';
+        const isRecurring = recurrenceType === 'monthly_nth_weekday';
+
+        if (eventId > 0 && isRecurring && isOccurrenceEdit) {
+            const action = await promptRecurringSaveScopeAction();
+            if (action === 'cancel') return;
+            if (action === 'occurrence') {
+                await api('includes/api/event_occurrence_overrides.php', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        mode: 'save_occurrence',
+                        id: eventId,
+                        occurrence_start_at: occurrenceStartAt,
+                        payload: buildOccurrenceOverridePayload()
+                    })
+                });
+                byId('eventDialog').close();
+                await refreshCalendar();
+                return;
+            }
+            if (action !== 'series') throw new Error('Save cancelled.');
+            const overrides = await api(`includes/api/event_occurrence_overrides.php?id=${encodeURIComponent(String(eventId))}`);
+            const otherOverrideDates = (overrides.occurrences || []).filter((d) => d !== occurrenceStartAt);
+            if (otherOverrideDates.length) {
+                const preview = otherOverrideDates.slice(0, 3).join(', ');
+                const overwriteAction = await promptRecurringOverwriteAction(`There are ${otherOverrideDates.length} individually edited events (e.g. ${preview}).`);
+                if (overwriteAction === 'overwrite') {
+                    await api('includes/api/event_occurrence_overrides.php', {
+                        method: 'POST',
+                        body: JSON.stringify({ mode: 'clear_all', id: eventId })
+                    });
+                }
+            }
+        }
+
         const form = new FormData();
         if (byId('eventId').value) form.append('id', byId('eventId').value);
         if (byId('copyFromId').value) form.append('copy_from_id', byId('copyFromId').value);
@@ -1360,8 +1869,20 @@ byId('eventForm').addEventListener('submit', async (e) => {
         const selectedLanguageCode = String(byId('eventLanguageCountry').value || '').toLowerCase();
         form.append('event_language_country_id', String((state.countries.find((c) => String(c.code || '').toLowerCase() === selectedLanguageCode) || {}).id || ''));
         form.append('interpretation_country_ids', JSON.stringify(interpIds));
-        form.append('start_at', toSqlDateTime(startDate));
-        form.append('end_at', toSqlDateTime(endDate));
+        let saveStart = toSqlDateTime(startDate);
+        let saveEnd = toSqlDateTime(endDate);
+        if (eventId > 0 && isRecurring && isOccurrenceEdit && seriesStartAt) {
+            const seriesStart = parseSqlLocal(seriesStartAt);
+            if (seriesStart) {
+                const adjustedStart = new Date(seriesStart.getFullYear(), seriesStart.getMonth(), seriesStart.getDate(), startDate.getHours(), startDate.getMinutes(), 0, 0);
+                const durationMs = Math.max(0, endDate.getTime() - startDate.getTime());
+                const adjustedEnd = new Date(adjustedStart.getTime() + durationMs);
+                saveStart = toSqlDateTime(adjustedStart);
+                saveEnd = toSqlDateTime(adjustedEnd);
+            }
+        }
+        form.append('start_at', saveStart);
+        form.append('end_at', saveEnd);
         form.append('recurrence_type', recurrenceType);
         if (recurrenceType === 'monthly_nth_weekday') {
             if (!recurWeeks.length) throw new Error('Select at least one week in month for recurrence');
@@ -1391,35 +1912,64 @@ byId('eventForm').addEventListener('submit', async (e) => {
 });
 
 byId('deleteEventBtn').addEventListener('click', async () => {
-    const id = Number(byId('eventId').value);
-    if (!id) return;
-    const currentOccurrenceStartAt = byId('eventForm').dataset.occurrenceStartAt || '';
-    const currentRecurrenceType = byId('eventForm').dataset.recurrenceType || 'none';
-    if (!window.confirm('Are you sure you want to delete this event?')) return;
+    try {
+        const id = Number(byId('eventId').value);
+        if (!id) throw new Error('Invalid event id');
+        const currentOccurrenceStartAt = byId('eventForm').dataset.occurrenceStartAt || '';
+        const currentRecurrenceType = byId('eventForm').dataset.recurrenceType || 'none';
+        const isRecurring = currentRecurrenceType === 'monthly_nth_weekday';
+        if (!isRecurring && !window.confirm('Are you sure you want to delete this event?')) return;
 
-    let payload = { id, scope: 'series' };
-    const isRecurring = currentRecurrenceType === 'monthly_nth_weekday';
-    if (isRecurring) {
-        const choice = window.prompt('Recurring event delete:\nType "1" to delete only this occurrence.\nType "2" to delete the full series.', '1');
-        if (choice === null) return;
-        const c = String(choice).trim();
-        if (c === '1') {
-            if (!currentOccurrenceStartAt) {
-                showErrorWindow('Could not determine the selected occurrence time.');
-                return;
+        let payload = { id, scope: 'series' };
+        if (isRecurring) {
+            const action = await promptRecurringDeleteAction();
+            if (action === 'cancel') return;
+            if (action === 'occurrence') {
+                if (!currentOccurrenceStartAt) {
+                    throw new Error('Could not determine the selected occurrence time.');
+                }
+                payload = { id, scope: 'occurrence', occurrence_start_at: currentOccurrenceStartAt };
+            } else if (action === 'from_here') {
+                if (!currentOccurrenceStartAt) {
+                    throw new Error('Could not determine the selected occurrence time.');
+                }
+                payload = { id, scope: 'from_here', occurrence_start_at: currentOccurrenceStartAt };
+            } else if (action === 'series') {
+                payload = { id, scope: 'series' };
+            } else {
+                throw new Error('Unknown recurring delete action.');
             }
-            payload = { id, scope: 'occurrence', occurrence_start_at: currentOccurrenceStartAt };
-        } else if (c === '2') {
-            payload = { id, scope: 'series' };
-        } else {
-            showErrorWindow('Delete cancelled. Please enter 1 (occurrence) or 2 (series).');
-            return;
         }
-    }
 
-    await api('includes/api/event_delete.php', { method: 'POST', body: JSON.stringify(payload) });
-    byId('eventDialog').close();
-    await refreshCalendar();
+        await api('includes/api/event_delete.php', { method: 'POST', body: JSON.stringify(payload) });
+        byId('eventDialog').close();
+        await refreshCalendar();
+    } catch (err) {
+        showErrorWindow(err.message || 'Could not delete event');
+    }
+});
+
+byId('hiddenOccurrencesBody').addEventListener('click', async (e) => {
+    const btn = e.target.closest('.reactivate-occurrence-btn');
+    if (!btn) return;
+    const id = Number(byId('eventId').value || 0);
+    const occurrenceStartAt = String(btn.dataset.occurrenceStartAt || '').trim();
+    if (!id || !occurrenceStartAt) return;
+    try {
+        await api('includes/api/event_occurrence_exceptions.php', {
+            method: 'POST',
+            body: JSON.stringify({ id, occurrence_start_at: occurrenceStartAt })
+        });
+        const eventItem = {
+            id,
+            can_edit: true,
+            recurrence_type: byId('eventForm').dataset.recurrenceType || 'none'
+        };
+        await loadHiddenOccurrences(eventItem);
+        await refreshCalendar();
+    } catch (err) {
+        showErrorWindow(err.message || 'Could not reactivate hidden event');
+    }
 });
 
 byId('loginBtn').addEventListener('click', async () => {

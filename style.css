@@ -154,6 +154,10 @@ button.danger { background: var(--danger); color: #fff; border-color: var(--dang
     cursor: pointer;
 }
 .event-pill.audience-consultants { background: #1d5fbf; }
+.event-pill.is-past {
+    background: #8a949e;
+    color: #f4f7fa;
+}
 .event-card.audience-consultants { border-left: 4px solid #1d5fbf; }
 .event-card.audience-guests { border-left: 4px solid #1f9d73; }
 
@@ -164,9 +168,45 @@ button.danger { background: var(--danger); color: #fff; border-color: var(--dang
     padding: 12px;
     background: #fcfffe;
 }
+.event-card.is-past {
+    background: #f3f5f7;
+    border-color: #cfd6dd;
+    color: #5f6770;
+}
+.event-card.is-past h4,
+.event-card.is-past .event-meta {
+    color: #5f6770;
+}
 .event-card h4 { margin: 0 0 6px; }
 .event-meta { color: var(--muted); margin: 0 0 8px; font-size: 0.9rem; }
 .event-card.is-clickable { cursor: pointer; }
+
+.week-overview {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 10px;
+}
+.week-day-col {
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 8px;
+    background: #fbfdfc;
+    min-height: 160px;
+}
+.week-event-card {
+    margin-top: 6px;
+    padding: 9px 10px;
+}
+.week-empty {
+    margin: 8px 0 0;
+    color: var(--muted);
+    font-size: 0.9rem;
+}
+@media (max-width: 960px) {
+    .week-overview {
+        grid-template-columns: 1fr;
+    }
+}
 
 dialog {
     border: none;

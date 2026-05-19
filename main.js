@@ -727,8 +727,8 @@ async function api(path, options = {}) {
 function getRange() {
     const d = new Date(state.currentDate);
     if (state.view === 'day') return { start: new Date(d.getFullYear(), d.getMonth(), d.getDate()), end: new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59) };
-    if (state.view === 'week') {
-        const day = isEuFormat() ? ((d.getDay() + 6) % 7) : d.getDay(); // EU Monday-first, US Sunday-first
+    if (state.view === 'week' || (state.view === 'list' && !state.user)) {
+        const day = (d.getDay() + 6) % 7; // Monday-first
         const start = new Date(d);
         start.setDate(d.getDate() - day);
         const end = new Date(start);
@@ -748,10 +748,22 @@ function getRange() {
 function stepDate(dir) {
     const d = state.currentDate;
     if (state.view === 'day') d.setDate(d.getDate() + dir);
-    else if (state.view === 'week') d.setDate(d.getDate() + (7 * dir));
+    else if (state.view === 'week' || (state.view === 'list' && !state.user)) d.setDate(d.getDate() + (7 * dir));
     else if (state.view === 'month') d.setMonth(d.getMonth() + dir);
     else if (state.view === 'year') d.setFullYear(d.getFullYear() + dir);
     else d.setMonth(d.getMonth() + dir);
+}
+
+function isoWeekData(dateLike) {
+    const d = new Date(dateLike.getFullYear(), dateLike.getMonth(), dateLike.getDate());
+    const weekdayMonFirst = (d.getDay() + 6) % 7;
+    d.setDate(d.getDate() - weekdayMonFirst + 3); // Thursday of current ISO week
+    const isoYear = d.getFullYear();
+    const firstThursday = new Date(isoYear, 0, 4);
+    const firstWeekday = (firstThursday.getDay() + 6) % 7;
+    firstThursday.setDate(firstThursday.getDate() - firstWeekday + 3);
+    const week = 1 + Math.round((d - firstThursday) / (7 * 24 * 60 * 60 * 1000));
+    return { week, year: isoYear };
 }
 
 function updateRangeLabel() {
@@ -772,6 +784,15 @@ function updateRangeLabel() {
         byId('rangeLabel').textContent = isEuFormat()
             ? `${monthName} ${year}  |  01.-${dd}.${mm}.${yyyy}`
             : `${monthName} ${year}  |  ${mm}/01/${yyyy}-${mm}/${dd}/${yyyy}`;
+        return;
+    }
+    if (state.view === 'week' || (state.view === 'list' && !state.user)) {
+        const { week, year } = isoWeekData(start);
+        const dd1 = start.getDate();
+        const dd2 = end.getDate();
+        const mm = end.getMonth() + 1;
+        const yyyy = end.getFullYear();
+        byId('rangeLabel').textContent = `Week ${String(week).padStart(2, '0')} ${year}  |  ${dd1}.-${dd2}.${mm}.${yyyy}`;
         return;
     }
     byId('rangeLabel').textContent = `${formatDateTimeByPreference(start).split(' ')[0]} - ${formatDateTimeByPreference(end).split(' ')[0]}`;
@@ -1435,7 +1456,7 @@ function renderList(events) {
     wrap.className = 'list-view';
     events.forEach((e) => {
         const card = document.createElement('article');
-        card.className = `event-card is-clickable ${isConsultantsOnly(e) ? 'audience-consultants' : 'audience-guests'}`;
+        card.className = `event-card is-clickable ${isConsultantsOnly(e) ? 'audience-consultants' : 'audience-guests'} ${isPastEvent(e) ? 'is-past' : ''}`;
         card.title = audienceSuffix(e);
         card.innerHTML = `<h4>${eventDisplayTitle(e)}</h4>
             <p class="event-meta">${formatEventTimeRange(e.start_at, e.end_at).replace('\n', ' | ')}</p>
@@ -1444,6 +1465,54 @@ function renderList(events) {
         wrap.appendChild(card);
     });
     if (!events.length) wrap.innerHTML = '<p>No events in this range and category.</p>';
+    root.appendChild(wrap);
+}
+
+function isPastEvent(eventItem) {
+    const end = parseSqlLocal(eventItem?.end_at || '');
+    if (!end || Number.isNaN(end.getTime())) return false;
+    return end.getTime() < Date.now();
+}
+
+function renderVisitorWeekOverview(anchor) {
+    const root = byId('calendarRoot');
+    root.innerHTML = '';
+    const wrap = document.createElement('div');
+    wrap.className = 'week-overview';
+    const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    dayNames.forEach((d) => {
+        const h = document.createElement('div');
+        h.className = 'day-head';
+        h.textContent = d;
+        wrap.appendChild(h);
+    });
+    const range = getRange();
+    for (let i = 0; i < 7; i += 1) {
+        const day = new Date(range.start);
+        day.setDate(range.start.getDate() + i);
+        const col = document.createElement('section');
+        col.className = 'week-day-col';
+        const num = document.createElement('div');
+        num.className = 'day-num';
+        num.textContent = `${day.getDate()}.${day.getMonth() + 1}.`;
+        col.appendChild(num);
+        const items = eventsForDate(day);
+        items.forEach((e) => {
+            const card = document.createElement('article');
+            card.className = `event-card week-event-card is-clickable ${isConsultantsOnly(e) ? 'audience-consultants' : 'audience-guests'} ${isPastEvent(e) ? 'is-past' : ''}`;
+            card.title = audienceSuffix(e);
+            card.innerHTML = `<h4>${eventDisplayTitle(e)}</h4><p class="event-meta">${formatEventTimeRange(e.start_at, e.end_at).replace('\n', ' | ')}</p>`;
+            card.addEventListener('click', () => openEventDialog(e));
+            col.appendChild(card);
+        });
+        if (!items.length) {
+            const empty = document.createElement('p');
+            empty.className = 'week-empty';
+            empty.textContent = 'No events';
+            col.appendChild(empty);
+        }
+        wrap.appendChild(col);
+    }
     root.appendChild(wrap);
 }
 
@@ -1475,7 +1544,7 @@ function renderMonthLike(anchor) {
         cell.appendChild(num);
         eventsForDate(d).slice(0, 4).forEach((e) => {
             const pill = document.createElement('div');
-            pill.className = `event-pill ${isConsultantsOnly(e) ? 'audience-consultants' : ''}`;
+            pill.className = `event-pill ${isConsultantsOnly(e) ? 'audience-consultants' : ''} ${isPastEvent(e) ? 'is-past' : ''}`;
             pill.title = audienceSuffix(e);
             const st = parseSqlLocal(e.start_at);
             pill.textContent = `${String(st.getHours()).padStart(2, '0')}:${String(st.getMinutes()).padStart(2, '0')} ${eventDisplayTitle(e)}`;
@@ -1502,6 +1571,7 @@ function renderView() {
     else if (state.view === 'year') renderYear();
     else if (state.view === 'week') renderWeek();
     else if (state.view === 'day') renderDay();
+    else if (!state.user && state.view === 'list') renderVisitorWeekOverview(state.currentDate);
     else renderList(state.events);
 }
 

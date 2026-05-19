@@ -202,7 +202,7 @@ button.danger { background: var(--danger); color: #fff; border-color: var(--dang
     border-radius: 12px;
     padding: 8px;
     background: #fbfdfc;
-    min-height: 160px;
+    min-height: 300px;
 }
 .week-event-card {
     margin-top: 6px;
@@ -501,6 +501,84 @@ dialog::backdrop { background: rgba(7, 26, 24, 0.55); }
 .admin-users-table th {
     background: #f3f8f7;
     text-align: left;
+}
+
+.speaker-form-block {
+    margin-top: 8px;
+    border-top: 1px solid var(--line);
+    padding-top: 10px;
+}
+
+.speaker-admin-panel {
+    padding: 16px;
+}
+
+.speaker-admin-head {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 12px;
+}
+
+.speaker-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 12px;
+}
+
+.speaker-card {
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 12px;
+    background: linear-gradient(180deg, #ffffff 0%, #f7fbfa 100%);
+    cursor: pointer;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.speaker-card:hover {
+    transform: translateY(-2px);
+    border-color: #9abdb6;
+    box-shadow: 0 8px 20px rgba(17, 79, 74, 0.08);
+}
+
+.speaker-card-photo {
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    border-radius: 10px;
+    border: 1px solid var(--line);
+    background: #eef6f4;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #6f8883;
+    overflow: hidden;
+}
+
+.speaker-card-photo img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.speaker-card h4 {
+    margin: 10px 0 6px;
+}
+
+.speaker-card p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 0.9rem;
+}
+
+.speaker-editor-form {
+    display: grid;
+    gap: 10px;
+    padding: 16px;
+}
+
+.speaker-edit-grid {
+    display: grid;
+    gap: 8px;
 }
 .admin-users-table input,
 .admin-users-table select {

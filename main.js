@@ -7,6 +7,7 @@ const state = {
     allEvents: [],
     events: [],
     user: null,
+    speakers: [],
     datetimeFormat: 'eu',
     showEventAuthor: true,
     csrfToken: ''
@@ -107,6 +108,21 @@ const escHtml = (value) => String(value ?? '')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
+
+function speakerProfileUrl(speaker) {
+    const url = new URL('speaker.php', window.location.href);
+    if (speaker?.slug) url.searchParams.set('slug', String(speaker.slug));
+    else url.searchParams.set('id', String(speaker?.id || ''));
+    return url.toString();
+}
+
+function speakersLabelHtml(speakers) {
+    const arr = Array.isArray(speakers) ? speakers.filter((s) => s && s.name) : [];
+    if (!arr.length) return '';
+    const title = arr.length === 1 ? 'Speaker' : 'Speakers';
+    const links = arr.map((s) => `<a href="${escHtml(speakerProfileUrl(s))}" target="_blank" rel="noopener">${escHtml(s.name)}</a>`).join(', ');
+    return `<strong>${title}:</strong> ${links}`;
+}
 const fmtDate = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
 function parseSqlLocal(iso) {
@@ -431,6 +447,7 @@ function renderUserMenu() {
             <div class="user-menu-head">${escHtml(head)}</div>
             <button id="userMenuProfileBtn" class="user-menu-item">Profile</button>
             ${role === 'admin' ? '<button id="userMenuAdminBtn" class="user-menu-item">Admin panel</button>' : ''}
+            ${(role === 'admin' || role === 'editor') ? '<button id="userMenuSpeakerMgmtBtn" class="user-menu-item">Speaker management</button>' : ''}
             <button id="userMenuLogoutBtn" class="user-menu-item">Logout</button>
         </div>`
         : '';
@@ -472,6 +489,14 @@ function renderUserMenu() {
             userMenuOpen = false;
             renderUserMenu();
             window.location.href = 'admin.php';
+        };
+    }
+    const speakerMgmtBtn = byId('userMenuSpeakerMgmtBtn');
+    if (speakerMgmtBtn) {
+        speakerMgmtBtn.onclick = () => {
+            userMenuOpen = false;
+            renderUserMenu();
+            window.location.href = 'speaker_manage.php';
         };
     }
     const logoutBtn = byId('userMenuLogoutBtn');
@@ -826,7 +851,9 @@ function monthGrid(anchorDate) {
 
 function eventsForDate(dateObj) {
     const key = fmtDate(dateObj);
-    return state.events.filter((e) => e.start_at.slice(0, 10) <= key && e.end_at.slice(0, 10) >= key);
+    return state.events
+        .filter((e) => e.start_at.slice(0, 10) <= key && e.end_at.slice(0, 10) >= key)
+        .sort((a, b) => String(a.start_at || '').localeCompare(String(b.start_at || '')));
 }
 
 function updateEventUrl(id) {
@@ -862,6 +889,9 @@ function openEventView(eventItem) {
     }
     byId('eventViewRecurrence').textContent = recurrenceSummary(eventItem);
     byId('eventViewTicketWrap').innerHTML = '';
+    const speakersHtml = speakersLabelHtml(eventItem.speakers || []);
+    byId('eventViewSpeakers').innerHTML = speakersHtml;
+    byId('eventViewSpeakers').style.display = speakersHtml ? '' : 'none';
     byId('eventViewDescription').textContent = eventItem.description || '';
     byId('eventViewDescription').style.whiteSpace = 'pre-line';
     const flagIsoByCode = new Map(EVENT_LANGUAGE_DEFS.map((d) => [d.code, d.flagIso]));
@@ -947,6 +977,11 @@ function buildPreviewEventFromForm(baseEventItem = null) {
         id: Number(byId('eventId').value || 0) || (baseEventItem?.id || 0),
         title: title || (baseEventItem?.title || ''),
         description: byId('eventDescription').value || '',
+        speakers: Array.from(byId('eventSpeakers').selectedOptions).map((o) => ({
+            id: Number(o.value),
+            name: String(o.textContent || '').trim(),
+            slug: String(o.dataset.slug || '')
+        })),
         event_mode: mode,
         event_link: mode === 'online' ? byId('eventLinkOnline').value.trim() : '',
         venue_address: mode === 'offline' ? byId('eventVenueAddress').value.trim() : '',
@@ -1020,6 +1055,7 @@ function renderEventDialogVisitorPanel(eventItem) {
             <h3>${escHtml(eventDisplayTitle(eventItem))}</h3>
             <div class="event-countries-inline">${countriesFlagsRow(eventItem.country_codes || [])}<span class="event-mode-badge">${modeBadge}</span></div>
             <p class="event-meta">${formatEventTimeRange(eventItem.start_at, eventItem.end_at).replace('\n', '<br>')}</p>
+            ${speakersLabelHtml(eventItem.speakers || []) ? `<p class="event-meta">${speakersLabelHtml(eventItem.speakers || [])}</p>` : ''}
             <p class="event-meta">${escHtml(recurrenceSummary(eventItem) || '')}</p>
             <p>${ticket}</p>
             <p style="white-space: pre-line;">${escHtml(eventItem.description || '')}</p>
@@ -1299,7 +1335,6 @@ function resolveRecurringOverwriteDialog(action) {
 
 async function canonicalEventForEditing(eventItem) {
     if (!eventItem || !eventItem.can_edit) return eventItem;
-    if (eventItem.recurrence_type !== 'monthly_nth_weekday') return eventItem;
     const id = Number(eventItem.id || 0);
     if (!id) return eventItem;
     try {
@@ -1333,6 +1368,12 @@ function buildOccurrenceOverridePayload() {
         country_codes: countryCodes,
         country_names: countryNames,
         interpretation_country_codes: interpCodes
+        ,
+        speakers: Array.from(byId('eventSpeakers').selectedOptions).map((o) => ({
+            id: Number(o.value),
+            name: String(o.textContent || '').trim(),
+            slug: String(o.dataset.slug || '')
+        }))
     };
 }
 
@@ -1399,6 +1440,8 @@ async function openEventDialog(eventItem = null, prefillDate = null) {
     Array.from(byId('eventInterpretationCountries').options).forEach((opt) => { opt.selected = selectedInterp.has(opt.dataset.code || ''); });
 
     byId('eventLanguageCountry').value = String(sourceEvent?.event_language_country_code || '').toLowerCase();
+    const selectedSpeakers = new Set((sourceEvent?.speakers || []).map((s) => String(s.id)));
+    Array.from(byId('eventSpeakers').options).forEach((opt) => { opt.selected = selectedSpeakers.has(opt.value); });
     byId('eventRecurrenceType').value = sourceEvent?.recurrence_type || 'none';
     const recurWeeks = Array.isArray(sourceEvent?.recur_weeks) && sourceEvent.recur_weeks.length
         ? sourceEvent.recur_weeks.map((n) => String(n))
@@ -1566,7 +1609,7 @@ function renderMonthLike(anchor) {
 }
 
 function renderYear() { renderList(state.events); }
-function renderWeek() { renderList(state.events); }
+function renderWeek() { renderVisitorWeekOverview(state.currentDate); }
 function renderDay() { renderList(eventsForDate(state.currentDate)); }
 
 function renderView() {
@@ -1586,10 +1629,12 @@ async function loadSession() {
     if (!state.user) {
         byId('authBlock').innerHTML = '';
         byId('newEventBtn').hidden = true;
+        byId('manageSpeakersBtn').style.display = 'none';
     } else {
         const role = String(state.user.role || '');
         const canOpenEditor = role === 'admin' || role === 'editor' || (role === 'category_editor' && Number(state.user.country_id || 0) > 0);
         byId('newEventBtn').hidden = !canOpenEditor;
+        byId('manageSpeakersBtn').style.display = canManageSpeakers() ? '' : 'none';
     }
     renderLanguagePicker();
     renderUserMenu();
@@ -1619,6 +1664,25 @@ async function loadCountries() {
     await loadLanguageFilterOptions();
 }
 
+function renderSpeakerOptions() {
+    byId('eventSpeakers').innerHTML = state.speakers.map((s) => `<option value="${s.id}" data-slug="${escHtml(s.slug || '')}">${escHtml(s.name)}</option>`).join('');
+}
+
+async function loadSpeakers() {
+    try {
+        const data = await api('includes/api/speakers.php');
+        state.speakers = Array.isArray(data.speakers) ? data.speakers : [];
+    } catch (err) {
+        state.speakers = [];
+    }
+    renderSpeakerOptions();
+}
+
+function canManageSpeakers() {
+    const role = String(state.user?.role || '');
+    return role === 'admin' || role === 'editor';
+}
+
 async function loadEvents() {
     let { start, end } = getRange();
     if (state.view === 'month') {
@@ -1644,7 +1708,7 @@ async function loadEvents() {
 }
 
 async function refreshCalendar() { await loadEvents(); renderView(); }
-async function bootstrap() { await loadSession(); await loadSettings(); await loadCountries(); await refreshCalendar(); }
+async function bootstrap() { await loadSession(); await loadSettings(); await loadCountries(); await loadSpeakers(); await refreshCalendar(); }
 
 function wireDateInput(textId, pickerId, btnId) {
     const txt = byId(textId);
@@ -1664,6 +1728,10 @@ byId('prevBtn').addEventListener('click', async () => { stepDate(-1); await refr
 byId('nextBtn').addEventListener('click', async () => { stepDate(1); await refreshCalendar(); });
 byId('todayBtn').addEventListener('click', async () => { state.currentDate = new Date(); await refreshCalendar(); });
 byId('newEventBtn').addEventListener('click', () => openEventDialog());
+byId('manageSpeakersBtn').addEventListener('click', async () => {
+    if (!canManageSpeakers()) return;
+    window.location.href = 'speaker_manage.php';
+});
 byId('eventDialogTabEdit').addEventListener('click', () => setEventDialogTab('edit', state.events.find((e) => Number(e.id) === Number(byId('eventId').value || 0)) || null));
 byId('eventDialogTabVisitor').addEventListener('click', () => setEventDialogTab('visitor', state.events.find((e) => Number(e.id) === Number(byId('eventId').value || 0)) || null));
 byId('cancelEventBtn').addEventListener('click', async () => { await tryCloseEventDialog(); });
@@ -1889,6 +1957,7 @@ byId('eventForm').addEventListener('submit', async (e) => {
         const countryIds = Array.from(byId('eventCountry').selectedOptions).map((o) => Number(o.value)).filter((n) => n > 0);
         if (!countryIds.length) throw new Error('Select at least one country');
         const interpIds = Array.from(byId('eventInterpretationCountries').selectedOptions).map((o) => Number(o.value)).filter((n) => n > 0);
+        const speakerIds = Array.from(byId('eventSpeakers').selectedOptions).map((o) => Number(o.value)).filter((n) => n > 0);
         const recurrenceType = byId('eventRecurrenceType').value;
         const recurrenceUntilInput = byId('eventRecurrenceUntil').value.trim();
         const recurrenceUntilDate = recurrenceUntilInput ? parseDateInput(recurrenceUntilInput) : null;
@@ -1949,6 +2018,7 @@ byId('eventForm').addEventListener('submit', async (e) => {
         const selectedLanguageCode = String(byId('eventLanguageCountry').value || '').toLowerCase();
         form.append('event_language_country_id', String((state.countries.find((c) => String(c.code || '').toLowerCase() === selectedLanguageCode) || {}).id || ''));
         form.append('interpretation_country_ids', JSON.stringify(interpIds));
+        form.append('speaker_ids', JSON.stringify(speakerIds));
         let saveStart = toSqlDateTime(startDate);
         let saveEnd = toSqlDateTime(endDate);
         if (eventId > 0 && isRecurring && isOccurrenceEdit && seriesStartAt) {

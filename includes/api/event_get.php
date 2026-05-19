@@ -32,6 +32,11 @@ $interpCheck = mysqli_query($mysqliConn, "SHOW TABLES LIKE 'event_interpretation
 if ($interpCheck && mysqli_num_rows($interpCheck) > 0) {
     $hasInterpCountries = true;
 }
+$hasEventSpeakers = false;
+$speakerCheck = mysqli_query($mysqliConn, "SHOW TABLES LIKE 'event_speakers'");
+if ($speakerCheck && mysqli_num_rows($speakerCheck) > 0) {
+    $hasEventSpeakers = true;
+}
 $hasEventModeColumn = false;
 $modeCheck = mysqli_query($mysqliConn, "SHOW COLUMNS FROM events LIKE 'event_mode'");
 if ($modeCheck && mysqli_num_rows($modeCheck) > 0) {
@@ -175,6 +180,22 @@ if ($hasInterpCountries) {
     mysqli_stmt_close($iStmt);
 } else {
     $event['interpretation_country_codes'] = [];
+}
+if ($hasEventSpeakers) {
+    $sStmt = mysqli_prepare($mysqliConn, 'SELECT s.id, s.name, s.slug FROM event_speakers es JOIN speakers s ON s.id = es.speaker_id WHERE es.event_id = ? ORDER BY es.sort_order ASC, s.name ASC');
+    mysqli_stmt_bind_param($sStmt, 'i', $id);
+    mysqli_stmt_execute($sStmt);
+    $event['speakers'] = [];
+    foreach (stmtFetchAllAssoc($sStmt) as $row) {
+        $event['speakers'][] = [
+            'id' => (int)$row['id'],
+            'name' => (string)$row['name'],
+            'slug' => (string)$row['slug']
+        ];
+    }
+    mysqli_stmt_close($sStmt);
+} else {
+    $event['speakers'] = [];
 }
 
 $event['creator_name'] = trim(($event['first_name'] ?? '') . ' ' . ($event['last_name'] ?? ''));

@@ -44,7 +44,7 @@ header('X-Robots-Tag: noindex, nofollow', true);
     <div class="app-shell">
         <main class="panel auth-shell">
             <h2 id="formTitle">Login</h2>
-            <p><a href="../">Back to calendar</a></p>
+            <p><a href="../" id="loginBackLink">Back to calendar</a></p>
             <section id="passwordLoginPane">
                 <label>Username (e-mail or 7-digit ID)</label>
                 <input id="loginUsername" autocomplete="username">
@@ -113,6 +113,10 @@ header('X-Robots-Tag: noindex, nofollow', true);
             <p id="authMessage"></p>
         </main>
     </div>
+    <script>window.APP_I18N_BASE = '../includes/i18n/';</script>
+    <script src="../includes/i18n/en.js"></script>
+    <script src="https://unpkg.com/i18next@23.16.4/dist/umd/i18next.min.js"></script>
+    <script src="../includes/i18n-loader.js"></script>
     <script src="./login.js"></script>
 </body>
 </html>

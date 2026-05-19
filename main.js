@@ -38,47 +38,45 @@ let recurringOverwriteResolver = null;
 
 const LANGUAGES = [
     { code: 'en', name: 'English', countryIso: 'gb' },
-    { code: 'fr', name: 'French', countryIso: 'fr' },
-    { code: 'de', name: 'German', countryIso: 'de' },
-    { code: 'hu', name: 'Hungarian', countryIso: 'hu' },
+    { code: 'fr', name: 'Francais', countryIso: 'fr' },
+    { code: 'de', name: 'Deutsch', countryIso: 'de' },
+    { code: 'hu', name: 'Magyar', countryIso: 'hu' },
     { code: 'it', name: 'Italian', countryIso: 'it' },
-    { code: 'pt', name: 'Portuguese', countryIso: 'pt' },
-    { code: 'ro', name: 'Romanian', countryIso: 'ro' },
-    { code: 'sk', name: 'Slovak', countryIso: 'sk' },
-    { code: 'es', name: 'Spanish', countryIso: 'es' }
+    { code: 'pt', name: 'Portugues', countryIso: 'pt' },
+    { code: 'ro', name: 'Romana', countryIso: 'ro' },
+    { code: 'sk', name: 'Slovencina', countryIso: 'sk' },
+    { code: 'es', name: 'Espanol', countryIso: 'es' }
 ].sort((a, b) => a.name.localeCompare(b.name));
-
-const I18N = {
-    en: { eventCalendar: 'Event Calendar', prev: 'Previous', today: 'Today', next: 'Next', newEvent: 'New Event', share: 'Share', copied: 'Copied', copyFailed: 'Copy failed', eventLanguage: 'Event language', interpretation: 'Interpretation', consultantMeeting: 'consultant meeting', consultantTraining: 'consultant training', consultantMeetingTrainingShort: 'consultant meeting / training', customersGuestsWelcome: 'customers and guests welcome', onlineEvent: 'Online Event', offlineEvent: 'Offline Event', venueAddress: 'Venue Address', ticketUrl: 'Ticket URL', getTicketNow: 'Get your ticket now!', soldOutLabel: 'Sold out', soldOutNo: 'Available', soldOutYes: 'Sold out', soldOutBadge: 'SOLD OUT', pastEvent: 'past event', audience: 'Audience', customersGuests: 'Guests & customers', consultantsMeeting: 'Consultant meeting', consultantsTraining: 'Consultant training', eventMode: 'Event Mode', selectMode: 'Select mode', meetingLink: 'Meeting Link', zoomLink: 'Zoom link', onlineZoomEvent: 'online Zoom event', inPersonMeeting: 'in person meeting', onlineZoomMeetingForConsultants: 'online Zoom meeting for consultants', onlineZoomTrainingForConsultants: 'online Zoom training for consultants', onlineZoomEventForGuestsCustomers: 'online Zoom event for guests and customers', inPersonMeetingForConsultants: 'in person meeting for consultants', inPersonTrainingForConsultants: 'in person training for consultants', inPersonEventForGuestsCustomers: 'in person event for guests and customers', guestsCustomersOverlay: 'Guests and customers welcome.' },
-    de: { eventCalendar: 'Ereigniskalender', prev: 'Zurück', today: 'Heute', next: 'Weiter', newEvent: 'Neues Ereignis', share: 'Teilen', copied: 'Kopiert', copyFailed: 'Fehlgeschlagen', eventLanguage: 'Veranstaltungssprache', interpretation: 'Es wird in die folgenden Sprachen übersetzt:', consultantMeeting: 'Beratermeeting', consultantTraining: 'Beratertraining', consultantMeetingTrainingShort: 'Beratermeeting/Training', customersGuestsWelcome: 'Kunden und Gäste willkommen', onlineEvent: 'Online-Event', offlineEvent: 'Offline-Event', venueAddress: 'Veranstaltungsort', ticketUrl: 'Ticket-URL', getTicketNow: 'Jetzt Ticket sichern!', soldOutLabel: 'Ausverkauft', soldOutNo: 'Verfügbar', soldOutYes: 'Ausverkauft', soldOutBadge: 'AUSVERKAUFT', pastEvent: 'Vergangenes Event', audience: 'Zielgruppe', customersGuests: 'Gäste und Kunden willkommen', consultantsMeeting: 'Beratermeeting', consultantsTraining: 'Beratertraining', eventMode: 'Eventmodus', selectMode: 'Modus wählen', meetingLink: 'Meeting-Link', zoomLink: 'Zoom-Link', onlineZoomEvent: 'Online-Zoom-Event', inPersonMeeting: 'Präsenztreffen', onlineZoomMeetingForConsultants: 'Online-Zoom-Meeting für Berater', onlineZoomTrainingForConsultants: 'Online-Zoom-Training für Berater', onlineZoomEventForGuestsCustomers: 'Online-Zoom-Event für Gäste und Kunden', inPersonMeetingForConsultants: 'Präsenzmeeting für Berater', inPersonTrainingForConsultants: 'Präsenztraining für Berater', inPersonEventForGuestsCustomers: 'Präsenzveranstaltung für Gäste und Kunden', guestsCustomersOverlay: 'Gäste und Kunden willkommen.' },
-    it: { eventCalendar: 'Calendario Eventi', prev: 'Precedente', today: 'Oggi', next: 'Successivo', newEvent: 'Nuovo Evento', share: 'Condividi', copied: 'Copiato', copyFailed: 'Errore copia', eventLanguage: "Lingua dell'evento", interpretation: 'Interpretazione', consultantMeeting: 'riunione consulenti', consultantTraining: 'formazione consulenti', consultantMeetingTrainingShort: 'riunione/formazione consulenti', customersGuestsWelcome: 'clienti e ospiti benvenuti', onlineEvent: 'Evento online', offlineEvent: 'Evento offline', venueAddress: 'Indirizzo sede', ticketUrl: 'URL biglietti', getTicketNow: 'Acquista ora il tuo biglietto!', soldOutLabel: 'Tutto esaurito', soldOutNo: 'Disponibile', soldOutYes: 'Esaurito', soldOutBadge: 'TUTTO ESAURITO', pastEvent: 'evento passato', audience: 'Pubblico', customersGuests: 'Ospiti e clienti benvenuti', consultantsMeeting: 'Riunione consulenti', consultantsTraining: 'Formazione consulenti', eventMode: 'Modalità evento', selectMode: 'Seleziona modalità', meetingLink: 'Link riunione', zoomLink: 'Link Zoom', onlineZoomEvent: 'evento Zoom online', inPersonMeeting: 'incontro in presenza', onlineZoomMeetingForConsultants: 'riunione Zoom online per consulenti', onlineZoomTrainingForConsultants: 'formazione Zoom online per consulenti', onlineZoomEventForGuestsCustomers: 'evento Zoom online per ospiti e clienti', inPersonMeetingForConsultants: 'riunione in presenza per consulenti', inPersonTrainingForConsultants: 'formazione in presenza per consulenti', inPersonEventForGuestsCustomers: 'evento in presenza per ospiti e clienti', guestsCustomersOverlay: 'Ospiti e clienti benvenuti.' },
-    es: { eventCalendar: 'Calendario de Eventos', prev: 'Anterior', today: 'Hoy', next: 'Siguiente', newEvent: 'Nuevo Evento', share: 'Compartir', copied: 'Copiado', copyFailed: 'Error al copiar', eventLanguage: 'Idioma del evento', interpretation: 'Interpretación', consultantMeeting: 'reunión de consultores', consultantTraining: 'formación de consultores', consultantMeetingTrainingShort: 'reunión/formación de consultores', customersGuestsWelcome: 'clientes e invitados bienvenidos', onlineEvent: 'Evento online', offlineEvent: 'Evento presencial', venueAddress: 'Dirección del lugar', ticketUrl: 'URL de entradas', getTicketNow: '¡Consigue tu entrada ahora!', soldOutLabel: 'Entradas agotadas', soldOutNo: 'Disponible', soldOutYes: 'Agotado', soldOutBadge: 'AGOTADO', pastEvent: 'evento pasado', audience: 'Público', customersGuests: 'Invitados y clientes bienvenidos', consultantsMeeting: 'Reunión de consultores', consultantsTraining: 'Formación de consultores', eventMode: 'Modo del evento', selectMode: 'Seleccionar modo', meetingLink: 'Enlace de reunión', zoomLink: 'Enlace Zoom', onlineZoomEvent: 'evento Zoom online', inPersonMeeting: 'reunión presencial', onlineZoomMeetingForConsultants: 'reunión Zoom online para consultores', onlineZoomTrainingForConsultants: 'formación Zoom online para consultores', onlineZoomEventForGuestsCustomers: 'evento Zoom online para invitados y clientes', inPersonMeetingForConsultants: 'reunión presencial para consultores', inPersonTrainingForConsultants: 'formación presencial para consultores', inPersonEventForGuestsCustomers: 'evento presencial para invitados y clientes', guestsCustomersOverlay: 'Invitados y clientes bienvenidos.' },
-    fr: { eventCalendar: 'Calendrier des Événements', prev: 'Précédent', today: "Aujourd'hui", next: 'Suivant', newEvent: 'Nouvel Événement', share: 'Partager', copied: 'Copié', copyFailed: 'Échec copie', eventLanguage: "Langue de l'événement", interpretation: 'Interprétation', consultantMeeting: 'réunion de consultants', consultantTraining: 'formation consultants', consultantMeetingTrainingShort: 'réunion/formation consultants', customersGuestsWelcome: 'clients et invités bienvenus', onlineEvent: 'Événement en ligne', offlineEvent: 'Événement sur place', venueAddress: 'Adresse du lieu', ticketUrl: 'URL billetterie', getTicketNow: 'Réservez votre billet maintenant !', soldOutLabel: 'Complet', soldOutNo: 'Disponible', soldOutYes: 'Complet', soldOutBadge: 'COMPLET', pastEvent: 'événement passé', audience: 'Public', customersGuests: 'Invités et clients bienvenus', consultantsMeeting: 'Réunion de consultants', consultantsTraining: 'Formation consultants', eventMode: "Mode d'événement", selectMode: 'Choisir le mode', meetingLink: 'Lien de réunion', zoomLink: 'Lien Zoom', onlineZoomEvent: 'événement Zoom en ligne', inPersonMeeting: 'réunion en présentiel', onlineZoomMeetingForConsultants: 'réunion Zoom en ligne pour consultants', onlineZoomTrainingForConsultants: 'formation Zoom en ligne pour consultants', onlineZoomEventForGuestsCustomers: 'événement Zoom en ligne pour invités et clients', inPersonMeetingForConsultants: 'réunion en présentiel pour consultants', inPersonTrainingForConsultants: 'formation en présentiel pour consultants', inPersonEventForGuestsCustomers: 'événement en présentiel pour invités et clients', guestsCustomersOverlay: 'Invités et clients bienvenus.' },
-    hu: { eventCalendar: 'Eseménynaptár', prev: 'Előző', today: 'Ma', next: 'Következő', newEvent: 'Új Esemény', share: 'Megosztás', copied: 'Másolva', copyFailed: 'Sikertelen', eventLanguage: 'Esemény nyelve', interpretation: 'Tolmácsolás', consultantMeeting: 'tanácsadói megbeszélés', consultantTraining: 'tanácsadói képzés', consultantMeetingTrainingShort: 'tanácsadói megbeszélés/képzés', customersGuestsWelcome: 'ügyfeleket és vendégeket várunk', onlineEvent: 'Online esemény', offlineEvent: 'Személyes esemény', venueAddress: 'Helyszín címe', ticketUrl: 'Jegyvásárlási URL', getTicketNow: 'Szerezd be a jegyed most!', soldOutLabel: 'Teltház', soldOutNo: 'Elérhető', soldOutYes: 'Teltházas', soldOutBadge: 'TELTHÁZ', pastEvent: 'korábbi esemény', audience: 'Közönség', customersGuests: 'Vendégek és ügyfelek várva', consultantsMeeting: 'Tanácsadói megbeszélés', consultantsTraining: 'Tanácsadói képzés', eventMode: 'Esemény típusa', selectMode: 'Válassz módot', meetingLink: 'Találkozó link', zoomLink: 'Zoom link', onlineZoomEvent: 'online Zoom esemény', inPersonMeeting: 'személyes találkozó', onlineZoomMeetingForConsultants: 'online Zoom megbeszélés tanácsadóknak', onlineZoomTrainingForConsultants: 'online Zoom képzés tanácsadóknak', onlineZoomEventForGuestsCustomers: 'online Zoom esemény vendégeknek és ügyfeleknek', inPersonMeetingForConsultants: 'személyes megbeszélés tanácsadóknak', inPersonTrainingForConsultants: 'személyes képzés tanácsadóknak', inPersonEventForGuestsCustomers: 'személyes esemény vendégeknek és ügyfeleknek', guestsCustomersOverlay: 'Vendégek és ügyfelek várva.' },
-    pt: { eventCalendar: 'Calendário de Eventos', prev: 'Anterior', today: 'Hoje', next: 'Próximo', newEvent: 'Novo Evento', share: 'Partilhar', copied: 'Copiado', copyFailed: 'Falha ao copiar', eventLanguage: 'Idioma do evento', interpretation: 'Interpretação', consultantMeeting: 'reunião de consultores', consultantTraining: 'treino de consultores', consultantMeetingTrainingShort: 'reunião/treino de consultores', customersGuestsWelcome: 'clientes e convidados bem-vindos', onlineEvent: 'Evento online', offlineEvent: 'Evento presencial', venueAddress: 'Morada do local', ticketUrl: 'URL de bilhetes', getTicketNow: 'Garanta já o seu bilhete!', soldOutLabel: 'Esgotado', soldOutNo: 'Disponível', soldOutYes: 'Esgotado', soldOutBadge: 'ESGOTADO', pastEvent: 'evento passado', audience: 'Público', customersGuests: 'Convidados e clientes bem-vindos', consultantsMeeting: 'Reunião de consultores', consultantsTraining: 'Treino de consultores', eventMode: 'Modo do evento', selectMode: 'Selecionar modo', meetingLink: 'Link da reunião', zoomLink: 'Link Zoom', onlineZoomEvent: 'evento Zoom online', inPersonMeeting: 'reunião presencial', onlineZoomMeetingForConsultants: 'reunião Zoom online para consultores', onlineZoomTrainingForConsultants: 'treino Zoom online para consultores', onlineZoomEventForGuestsCustomers: 'evento Zoom online para convidados e clientes', inPersonMeetingForConsultants: 'reunião presencial para consultores', inPersonTrainingForConsultants: 'treino presencial para consultores', inPersonEventForGuestsCustomers: 'evento presencial para convidados e clientes', guestsCustomersOverlay: 'Convidados e clientes bem-vindos.' },
-    ro: { eventCalendar: 'Calendar Evenimente', prev: 'Anterior', today: 'Astăzi', next: 'Următor', newEvent: 'Eveniment Nou', share: 'Distribuie', copied: 'Copiat', copyFailed: 'Eroare copiere', eventLanguage: 'Limba evenimentului', interpretation: 'Interpretare', consultantMeeting: 'întâlnire consultanți', consultantTraining: 'training consultanți', consultantMeetingTrainingShort: 'întâlnire/training consultanți', customersGuestsWelcome: 'clienți și invitați bineveniți', onlineEvent: 'Eveniment online', offlineEvent: 'Eveniment offline', venueAddress: 'Adresa locației', ticketUrl: 'URL bilete', getTicketNow: 'Ia-ți biletul acum!', soldOutLabel: 'Epuizat', soldOutNo: 'Disponibil', soldOutYes: 'Epuizat', soldOutBadge: 'EPUIZAT', pastEvent: 'eveniment trecut', audience: 'Public', customersGuests: 'Invitați și clienți bineveniți', consultantsMeeting: 'Întâlnire consultanți', consultantsTraining: 'Training consultanți', eventMode: 'Tip eveniment', selectMode: 'Selectează tipul', meetingLink: 'Link întâlnire', zoomLink: 'Link Zoom', onlineZoomEvent: 'eveniment Zoom online', inPersonMeeting: 'întâlnire fizică', onlineZoomMeetingForConsultants: 'întâlnire Zoom online pentru consultanți', onlineZoomTrainingForConsultants: 'training Zoom online pentru consultanți', onlineZoomEventForGuestsCustomers: 'eveniment Zoom online pentru invitați și clienți', inPersonMeetingForConsultants: 'întâlnire fizică pentru consultanți', inPersonTrainingForConsultants: 'training fizic pentru consultanți', inPersonEventForGuestsCustomers: 'eveniment fizic pentru invitați și clienți', guestsCustomersOverlay: 'Invitați și clienți bineveniți.' },
-    sk: { eventCalendar: 'Kalendár Udalostí', prev: 'Predchádzajúci', today: 'Dnes', next: 'Ďalší', newEvent: 'Nová Udalosť', share: 'Zdieľať', copied: 'Skopírované', copyFailed: 'Chyba kopírovania', eventLanguage: 'Jazyk udalosti', interpretation: 'Tlmočenie', consultantMeeting: 'stretnutie konzultantov', consultantTraining: 'školenie konzultantov', consultantMeetingTrainingShort: 'stretnutie/školenie konzultantov', customersGuestsWelcome: 'zákazníci a hostia vítaní', onlineEvent: 'Online udalosť', offlineEvent: 'Prezenčná udalosť', venueAddress: 'Adresa miesta', ticketUrl: 'URL vstupeniek', getTicketNow: 'Získajte si vstupenku teraz!', soldOutLabel: 'Vypredané', soldOutNo: 'Dostupné', soldOutYes: 'Vypredané', soldOutBadge: 'VYPREDANÉ', pastEvent: 'minulé podujatie', audience: 'Publikum', customersGuests: 'Hostia a zákazníci vítaní', consultantsMeeting: 'Stretnutie konzultantov', consultantsTraining: 'Školenie konzultantov', eventMode: 'Typ udalosti', selectMode: 'Vyber typ', meetingLink: 'Odkaz na stretnutie', zoomLink: 'Zoom odkaz', onlineZoomEvent: 'online Zoom udalosť', inPersonMeeting: 'osobné stretnutie', onlineZoomMeetingForConsultants: 'online Zoom stretnutie pre konzultantov', onlineZoomTrainingForConsultants: 'online Zoom školenie pre konzultantov', onlineZoomEventForGuestsCustomers: 'online Zoom udalosť pre hostí a zákazníkov', inPersonMeetingForConsultants: 'osobné stretnutie pre konzultantov', inPersonTrainingForConsultants: 'osobné školenie pre konzultantov', inPersonEventForGuestsCustomers: 'osobná udalosť pre hostí a zákazníkov', guestsCustomersOverlay: 'Hostia a zákazníci vítaní.' }
-};
-const UI_I18N = {
-    en: { unsavedChangesTitle: 'Unsaved changes', unsavedChangesText: 'Do you want to save your changes before closing?', save: 'Save', discard: 'Discard', cancel: 'Cancel', saveKey: 's', discardKey: 'd', cancelKey: 'c' },
-    de: { unsavedChangesTitle: 'Ungespeicherte Änderungen', unsavedChangesText: 'Möchten Sie Ihre Änderungen vor dem Schließen speichern?', save: 'Speichern', discard: 'Verwerfen', cancel: 'Abbrechen', saveKey: 's', discardKey: 'v', cancelKey: 'a' },
-    it: { unsavedChangesTitle: 'Modifiche non salvate', unsavedChangesText: 'Vuoi salvare le modifiche prima di chiudere?', save: 'Salva', discard: 'Scarta', cancel: 'Annulla', saveKey: 's', discardKey: 't', cancelKey: 'a' },
-    es: { unsavedChangesTitle: 'Cambios sin guardar', unsavedChangesText: '¿Quieres guardar los cambios antes de cerrar?', save: 'Guardar', discard: 'Descartar', cancel: 'Cancelar', saveKey: 'g', discardKey: 'd', cancelKey: 'c' },
-    fr: { unsavedChangesTitle: 'Modifications non enregistrées', unsavedChangesText: 'Voulez-vous enregistrer vos modifications avant de fermer ?', save: 'Sauvegarder', discard: 'Ignorer', cancel: 'Annuler', saveKey: 's', discardKey: 'i', cancelKey: 'a' },
-    hu: { unsavedChangesTitle: 'Nem mentett módosítások', unsavedChangesText: 'Szeretnéd menteni a módosításokat bezárás előtt?', save: 'Mentés', discard: 'Elvetés', cancel: 'Mégse', saveKey: 't', discardKey: 'e', cancelKey: 'm' },
-    pt: { unsavedChangesTitle: 'Alterações não guardadas', unsavedChangesText: 'Quer guardar as alterações antes de fechar?', save: 'Guardar', discard: 'Descartar', cancel: 'Cancelar', saveKey: 'g', discardKey: 'd', cancelKey: 'c' },
-    ro: { unsavedChangesTitle: 'Modificări nesalvate', unsavedChangesText: 'Doriți să salvați modificările înainte de închidere?', save: 'Salvează', discard: 'Renunță', cancel: 'Anulează', saveKey: 's', discardKey: 'r', cancelKey: 'a' },
-    sk: { unsavedChangesTitle: 'Neuložené zmeny', unsavedChangesText: 'Chcete pred zatvorením uložiť zmeny?', save: 'Uložiť', discard: 'Zahodiť', cancel: 'Zrušiť', saveKey: 'u', discardKey: 'z', cancelKey: 'r' }
-};
 
 function getLang() {
     const saved = localStorage.getItem('app_lang') || 'en';
-    return I18N[saved] ? saved : 'en';
+    if (window.AppI18n && typeof window.AppI18n.normalizeLang === 'function') {
+        return window.AppI18n.normalizeLang(saved);
+    }
+    return saved;
 }
 
 function t(key) {
-    const lang = getLang();
-    return I18N[lang]?.[key] || UI_I18N[lang]?.[key] || I18N.en[key] || UI_I18N.en[key] || key;
+    const fallback = {
+        prev: 'Previous',
+        today: 'Today',
+        next: 'Next',
+        allCountries: 'All countries',
+        allLanguages: 'All languages',
+        month: 'Month',
+        year: 'Year',
+        week: 'Week',
+        day: 'Day',
+        list: 'List'
+    };
+    if (window.i18next && window.i18next.isInitialized) {
+        const out = window.i18next.t(key);
+        if (out !== key) return out;
+    }
+    return fallback[key] || key;
+}
+function selectorText(key) {
+    return t(key);
 }
 
 function isEuFormat() {
@@ -86,12 +84,10 @@ function isEuFormat() {
 }
 
 function unsavedHotkeys() {
-    const lang = getLang();
-    const ui = UI_I18N[lang] || UI_I18N.en;
     return {
-        save: String(ui.saveKey || UI_I18N.en.saveKey || 's').toLowerCase(),
-        discard: String(ui.discardKey || UI_I18N.en.discardKey || 'd').toLowerCase(),
-        cancel: String(ui.cancelKey || UI_I18N.en.cancelKey || 'c').toLowerCase()
+        save: String(t('saveKey') || 's').toLowerCase(),
+        discard: String(t('discardKey') || 'd').toLowerCase(),
+        cancel: String(t('cancelKey') || 'c').toLowerCase()
     };
 }
 
@@ -404,6 +400,14 @@ function optionWithFlag(value, label, code, extraAttrs = '') {
     return `<option value="${escHtml(String(value))}" ${extraAttrs}style="${style}">${escHtml(String(label))}</option>`;
 }
 
+function languageMetaByCode(code) {
+    const norm = String(code || '').toLowerCase();
+    if (norm === 'gb' || norm === 'uk') return { code: 'en', flagIso: 'gb' };
+    const row = EVENT_LANGUAGE_DEFS.find((d) => d.code === norm);
+    if (row) return { code: row.code, flagIso: row.flagIso };
+    return { code: norm, flagIso: norm };
+}
+
 function langFlagImg(iso, alt) {
     const safeIso = String(iso || '').toLowerCase();
     const safeAlt = String(alt || '').replace(/"/g, '&quot;');
@@ -412,8 +416,8 @@ function langFlagImg(iso, alt) {
 
 function renderLanguagePicker() {
     const current = LANGUAGES.find((l) => l.code === getLang()) || LANGUAGES.find((l) => l.code === 'en');
-    const menu = langMenuOpen ? `<div class="lang-menu">${LANGUAGES.map((l) => `<button class="lang-item" data-lang="${l.code}" title="${l.name}">${langFlagImg(l.countryIso, l.name)}</button>`).join('')}</div>` : '';
-    byId('langBlock').innerHTML = `<button id="langToggleBtn" class="lang-toggle" title="Language">${langFlagImg(current.countryIso, current.name)}</button>${menu}`;
+    const menu = langMenuOpen ? `<div class="lang-menu">${LANGUAGES.map((l) => `<button class="lang-item" data-lang="${l.code}" title="${escHtml(l.name)}">${langFlagImg(l.countryIso, l.name)}<span class="lang-item-label">${escHtml(l.name)}</span></button>`).join('')}</div>` : '';
+    byId('langBlock').innerHTML = `<button id="langToggleBtn" class="lang-toggle" title="${escHtml(selectorText('language'))}">${langFlagImg(current.countryIso, current.name)}</button>${menu}`;
     byId('langToggleBtn').onclick = (e) => {
         if (e && e.stopPropagation) e.stopPropagation();
         langMenuOpen = !langMenuOpen;
@@ -422,6 +426,19 @@ function renderLanguagePicker() {
     byId('langBlock').querySelectorAll('.lang-item').forEach((el) => {
         el.addEventListener('click', async () => {
             localStorage.setItem('app_lang', el.dataset.lang);
+            if (window.AppI18n) {
+                await window.AppI18n.initI18n(el.dataset.lang);
+            }
+            if (state.user && state.user.user_id) {
+                try {
+                    await api('includes/api/user_language_update.php', {
+                        method: 'POST',
+                        body: JSON.stringify({ language: String(el.dataset.lang || 'en') })
+                    });
+                } catch (err) {
+                    // Non-blocking: keep UI switch even if preference save fails.
+                }
+            }
             langMenuOpen = false;
             applyI18nTexts();
             renderLanguagePicker();
@@ -519,7 +536,45 @@ function applyI18nTexts() {
     setText('todayBtn', t('today'));
     setText('nextBtn', t('next'));
     setText('newEventBtn', t('newEvent'));
-    setText('eventModeLabel', 'Event type');
+    setText('eventModeLabel', selectorText('eventType'));
+    setText('eventTitleLabel', selectorText('title'));
+    setText('eventDescriptionLabel', selectorText('description'));
+    setText('eventStartDateLabel', selectorText('eventDate'));
+    setText('eventEndDateLabel', selectorText('endDate'));
+    setText('eventStartTimeLabel', selectorText('startTime'));
+    setText('eventEndTimeLabel', selectorText('endTime'));
+    setText('eventMultiDayLabel', selectorText('multiDayEvent'));
+    setText('eventCountryLabel', selectorText('country'));
+    setText('eventLanguageCountryLabel', t('eventLanguage'));
+    setText('eventInterpretationCountriesLabel', t('interpretation'));
+    setText('eventRecurrenceTypeLabel', selectorText('recurrence'));
+    setText('eventRecurWeekLabel', selectorText('weekInMonth'));
+    setText('eventRecurWeekdayLabel', selectorText('weekday'));
+    setText('eventRecurrenceUntilLabel', selectorText('recurrenceEndOptional'));
+    setText('hiddenEventsTitle', selectorText('hiddenEvents'));
+    setText('hiddenEventsDateHead', selectorText('date'));
+    setText('hiddenEventsActionHead', selectorText('action'));
+    setText('eventSpeakersLabel', selectorText('speakersOptional'));
+    const viewSelect = byId('viewSelect');
+    if (viewSelect) {
+        const viewLabels = {
+            month: selectorText('month'),
+            year: selectorText('year'),
+            week: selectorText('week'),
+            day: selectorText('day'),
+            list: selectorText('list')
+        };
+        Array.from(viewSelect.options).forEach((opt) => {
+            const key = String(opt.value || '');
+            if (viewLabels[key]) opt.textContent = viewLabels[key];
+        });
+    }
+    const eventStartDatePickBtn = byId('eventStartDatePickBtn');
+    const eventEndDatePickBtn = byId('eventEndDatePickBtn');
+    const eventRecurrenceUntilPickBtn = byId('eventRecurrenceUntilPickBtn');
+    if (eventStartDatePickBtn) eventStartDatePickBtn.textContent = selectorText('pick');
+    if (eventEndDatePickBtn) eventEndDatePickBtn.textContent = selectorText('pick');
+    if (eventRecurrenceUntilPickBtn) eventRecurrenceUntilPickBtn.textContent = selectorText('pick');
     setText('eventLinkLabel', t('meetingLink'));
     setText('eventVenueAddressLabel', t('venueAddress'));
     setText('eventTicketUrlLabel', t('ticketUrl'));
@@ -537,10 +592,38 @@ function applyI18nTexts() {
     const shareBtn = byId('shareEventBtn');
     if (shareBtn) {
         const txt = shareBtn.textContent.trim();
-        if (txt === '' || Object.values(I18N).some((d) => [d.share, d.copied, d.copyFailed].includes(txt))) {
+        if (txt === '' || shareBtn.dataset.state === 'copied' || shareBtn.dataset.state === 'failed' || shareBtn.dataset.state === 'share') {
             shareBtn.textContent = t('share');
+            shareBtn.dataset.state = 'share';
         }
     }
+    const closeEventBtn = byId('closeEventViewIconBtn');
+    if (closeEventBtn) closeEventBtn.title = selectorText('close');
+    const cancelEventBtn = byId('cancelEventBtn');
+    const saveEventBtn = byId('eventForm')?.querySelector('button[type="submit"].accent');
+    const deleteEventBtn = byId('deleteEventBtn');
+    if (cancelEventBtn) cancelEventBtn.textContent = selectorText('cancel');
+    if (saveEventBtn) saveEventBtn.textContent = selectorText('save');
+    if (deleteEventBtn) deleteEventBtn.textContent = selectorText('del');
+    setText('recurringDeleteTitle', selectorText('deleteRecurringTitle'));
+    setText('recurringDeleteText', selectorText('deleteRecurringText'));
+    setText('recurringSaveScopeTitle', selectorText('saveRecurringTitle'));
+    setText('recurringSaveScopeText', selectorText('saveRecurringText'));
+    setText('recurringOverwriteTitle', selectorText('overwriteIndividualTitle'));
+    const recurringDeleteCancelBtn = byId('recurringDeleteCancelBtn');
+    const recurringDeleteOccurrenceBtn = byId('recurringDeleteOccurrenceBtn');
+    const recurringDeleteFromHereBtn = byId('recurringDeleteFromHereBtn');
+    const recurringDeleteSeriesBtn = byId('recurringDeleteSeriesBtn');
+    const recurringSaveScopeCancelBtn = byId('recurringSaveScopeCancelBtn');
+    const recurringSaveScopeOccurrenceBtn = byId('recurringSaveScopeOccurrenceBtn');
+    const recurringSaveScopeSeriesBtn = byId('recurringSaveScopeSeriesBtn');
+    if (recurringDeleteCancelBtn) recurringDeleteCancelBtn.textContent = selectorText('cancel');
+    if (recurringDeleteOccurrenceBtn) recurringDeleteOccurrenceBtn.textContent = selectorText('onlyThisEvent');
+    if (recurringDeleteFromHereBtn) recurringDeleteFromHereBtn.textContent = selectorText('allFromHere');
+    if (recurringDeleteSeriesBtn) recurringDeleteSeriesBtn.textContent = selectorText('allInSeries');
+    if (recurringSaveScopeCancelBtn) recurringSaveScopeCancelBtn.textContent = selectorText('cancel');
+    if (recurringSaveScopeOccurrenceBtn) recurringSaveScopeOccurrenceBtn.textContent = selectorText('onlyThisEvent');
+    if (recurringSaveScopeSeriesBtn) recurringSaveScopeSeriesBtn.textContent = selectorText('allEventsInSeries');
     const isEu = state.datetimeFormat === 'eu';
     const eventRecurrenceUntil = byId('eventRecurrenceUntil');
     if (eventRecurrenceUntil) {
@@ -550,6 +633,7 @@ function applyI18nTexts() {
     const eventEndDate = byId('eventEndDate');
     const eventStartTime = byId('eventStartTime');
     const eventEndTime = byId('eventEndTime');
+    const eventDescription = byId('eventDescription');
     const pickerLocale = isEu ? 'en-GB' : 'en-US';
     const eventStartDatePicker = byId('eventStartDatePicker');
     const eventEndDatePicker = byId('eventEndDatePicker');
@@ -559,6 +643,7 @@ function applyI18nTexts() {
     if (eventEndDate) eventEndDate.placeholder = isEu ? 'DD.MM.YYYY' : 'MM/DD/YYYY';
     if (eventStartTime) eventStartTime.placeholder = isEu ? 'HH:MM' : 'HH:MM AM';
     if (eventEndTime) eventEndTime.placeholder = isEu ? 'HH:MM' : 'HH:MM AM';
+    if (eventDescription) eventDescription.placeholder = selectorText('agendaPlaceholder');
     setText('unsavedChangesTitle', t('unsavedChangesTitle'));
     setText('unsavedChangesText', t('unsavedChangesText'));
     const unsavedSaveBtn = byId('unsavedSaveBtn');
@@ -577,6 +662,10 @@ function applyI18nTexts() {
     if (unsavedSaveBtn) unsavedSaveBtn.innerHTML = underlineShortcut(t('save'), keys.save);
     if (unsavedDiscardBtn) unsavedDiscardBtn.innerHTML = underlineShortcut(t('discard'), keys.discard);
     if (unsavedCancelBtn) unsavedCancelBtn.innerHTML = underlineShortcut(t('cancel'), keys.cancel);
+    if (Array.isArray(state.countries) && state.countries.length) {
+        rebuildCountryFilterOptions();
+        rebuildLanguageFilterOptions();
+    }
 }
 
 function getRadioValue(name, fallback = '') {
@@ -648,9 +737,15 @@ function eventLanguageOptions() {
 }
 
 function languageNameByCode(code) {
-    const norm = String(code || '').toLowerCase();
-    if (norm === 'gb' || norm === 'uk') return 'English';
-    const row = EVENT_LANGUAGE_DEFS.find((d) => d.code === norm);
+    const meta = languageMetaByCode(code);
+    try {
+        const dn = new Intl.DisplayNames([getLang()], { type: 'language' });
+        const localized = dn.of(meta.code);
+        if (localized) return localized.charAt(0).toUpperCase() + localized.slice(1);
+    } catch (err) {
+        // Ignore and use fallback.
+    }
+    const row = EVENT_LANGUAGE_DEFS.find((d) => d.code === meta.code);
     return row ? row.name : String(code || '').toUpperCase();
 }
 
@@ -703,7 +798,7 @@ function rebuildLanguageFilterOptions() {
         eventLanguageCodes(e).forEach((c) => codeSet.add(c));
     });
     const sortedCodes = Array.from(codeSet).sort((a, b) => languageNameByCode(a).localeCompare(languageNameByCode(b)));
-    filter.innerHTML = ['<option value="">All languages</option>', ...sortedCodes.map((c) => optionWithFlag(c, languageNameByCode(c), c))].join('');
+    filter.innerHTML = [`<option value="">${escHtml(selectorText('allLanguages'))}</option>`, ...sortedCodes.map((c) => optionWithFlag(c, languageNameByCode(c), languageMetaByCode(c).flagIso))].join('');
     filter.value = sortedCodes.includes(selected) ? selected : '';
     state.selectedLanguage = filter.value || '';
 }
@@ -716,12 +811,22 @@ async function loadLanguageFilterOptions() {
         const raw = Array.isArray(data?.codes) ? data.codes : [];
         const codes = raw.map((c) => String(c || '').toLowerCase()).filter(Boolean);
         const selected = state.selectedLanguage || '';
-        filter.innerHTML = ['<option value="">All languages</option>', ...codes.sort((a, b) => languageNameByCode(a).localeCompare(languageNameByCode(b))).map((c) => optionWithFlag(c, languageNameByCode(c), c))].join('');
+        filter.innerHTML = [`<option value="">${escHtml(selectorText('allLanguages'))}</option>`, ...codes.sort((a, b) => languageNameByCode(a).localeCompare(languageNameByCode(b))).map((c) => optionWithFlag(c, languageNameByCode(c), languageMetaByCode(c).flagIso))].join('');
         filter.value = codes.includes(selected) ? selected : '';
         state.selectedLanguage = filter.value || '';
     } catch (err) {
         rebuildLanguageFilterOptions();
     }
+}
+
+function rebuildCountryFilterOptions() {
+    const filter = byId('countryFilter');
+    if (!filter) return;
+    const selected = String(state.selectedCountry || '');
+    const calendarFilterCountries = state.countries.filter((c) => String(c.code || '').toLowerCase() !== 'eu');
+    filter.innerHTML = [`<option value="">${escHtml(selectorText('allCountries'))}</option>`, ...calendarFilterCountries.map((c) => `<option value="${c.id}" style="${countryFlagOptionStyle(c.code)}">${countryOptionLabel(c)}</option>`)].join('');
+    filter.value = calendarFilterCountries.some((c) => String(c.id) === selected) ? selected : '';
+    state.selectedCountry = filter.value || '';
 }
 
 function applyClientFilters() {
@@ -945,13 +1050,16 @@ function openEventView(eventItem) {
         try {
             await navigator.clipboard.writeText(url.toString());
             btn.textContent = t('copied');
-            setTimeout(() => { btn.textContent = t('share'); }, 2200);
+            btn.dataset.state = 'copied';
+            setTimeout(() => { btn.textContent = t('share'); btn.dataset.state = 'share'; }, 2200);
         } catch (err) {
             btn.textContent = t('copyFailed');
-            setTimeout(() => { btn.textContent = t('share'); }, 2200);
+            btn.dataset.state = 'failed';
+            setTimeout(() => { btn.textContent = t('share'); btn.dataset.state = 'share'; }, 2200);
         }
     };
     byId('shareEventBtn').textContent = t('share');
+    byId('shareEventBtn').dataset.state = 'share';
     updateEventUrl(eventItem.id);
     dlg.showModal();
 }
@@ -1411,7 +1519,7 @@ async function openEventDialog(eventItem = null, prefillDate = null) {
     const isRecurringOccurrenceEdit = !!(eventItem && editEvent && editEvent.recurrence_type === 'monthly_nth_weekday' && eventItem.start_at && editEvent.start_at && eventItem.start_at !== editEvent.start_at);
     const sourceEvent = isRecurringOccurrenceEdit ? { ...editEvent, ...eventItem } : editEvent;
 
-    byId('eventDialogTitle').textContent = sourceEvent ? 'Edit Event' : 'New Event';
+    byId('eventDialogTitle').textContent = sourceEvent ? selectorText('editEvent') : t('newEvent');
     byId('eventForm').dataset.occurrenceStartAt = eventItem?.start_at || sourceEvent?.start_at || '';
     byId('eventForm').dataset.recurrenceType = sourceEvent?.recurrence_type || 'none';
     byId('copyFromId').value = '';
@@ -1517,7 +1625,7 @@ function renderList(events) {
         card.addEventListener('click', () => openEventDialog(e));
         wrap.appendChild(card);
     });
-    if (!events.length) wrap.innerHTML = '<p>No events in this range and category.</p>';
+    if (!events.length) wrap.innerHTML = `<p>${escHtml(selectorText('noEventsInRange'))}</p>`;
     root.appendChild(wrap);
 }
 
@@ -1552,12 +1660,6 @@ function renderVisitorWeekOverview(anchor) {
             card.addEventListener('click', () => openEventDialog(e));
             col.appendChild(card);
         });
-        if (!items.length) {
-            const empty = document.createElement('p');
-            empty.className = 'week-empty';
-            empty.textContent = 'No events';
-            col.appendChild(empty);
-        }
         wrap.appendChild(col);
     }
     root.appendChild(wrap);
@@ -1626,6 +1728,13 @@ async function loadSession() {
     const data = await api('includes/api/auth_session.php');
     state.user = data.user;
     state.datetimeFormat = data.user?.datetime_format === 'us' ? 'us' : 'eu';
+    if (state.user?.language) {
+        const sessionLang = String(state.user.language).toLowerCase();
+        localStorage.setItem('app_lang', sessionLang);
+        if (window.AppI18n) {
+            await window.AppI18n.initI18n(sessionLang);
+        }
+    }
     if (!state.user) {
         byId('authBlock').innerHTML = '';
         byId('newEventBtn').hidden = true;
@@ -1653,14 +1762,13 @@ async function loadSettings() {
 async function loadCountries() {
     const data = await api('includes/api/countries.php');
     state.countries = data.countries;
-    const calendarFilterCountries = state.countries.filter((c) => String(c.code || '').toLowerCase() !== 'eu');
-    byId('countryFilter').innerHTML = ['<option value="">All Countries</option>', ...calendarFilterCountries.map((c) => `<option value="${c.id}" style="${countryFlagOptionStyle(c.code)}">${countryOptionLabel(c)}</option>`)].join('');
+    rebuildCountryFilterOptions();
     byId('eventCountry').innerHTML = state.countries.map((c) => `<option value="${c.id}" data-code="${c.code}" data-name="${escHtml(c.name)}" style="${countryFlagOptionStyle(c.code)}">${countryOptionLabel(c)}</option>`).join('');
     const languageOpts = eventLanguageOptions();
-    byId('eventLanguageCountry').innerHTML = ['<option value="">Select language</option>', ...languageOpts.map((c) => `<option value="${c.code}" data-country-id="${c.id}" style="${countryFlagOptionStyle(c.code)}">${countryOptionLabel(c)}</option>`)].join('');
+    byId('eventLanguageCountry').innerHTML = [`<option value="">${escHtml(selectorText('selectLanguage'))}</option>`, ...languageOpts.map((c) => `<option value="${c.code}" data-country-id="${c.id}" style="${countryFlagOptionStyle(c.code)}">${countryOptionLabel(c)}</option>`)].join('');
     byId('eventInterpretationCountries').innerHTML = languageOpts.map((c) => `<option value="${c.id}" data-code="${c.code}" style="${countryFlagOptionStyle(c.code)}">${countryOptionLabel(c)}</option>`).join('');
     byId('signupCountry').innerHTML = state.countries.map((c) => `<option value="${c.id}" style="${countryFlagOptionStyle(c.code)}">${countryOptionLabel(c)}</option>`).join('');
-    byId('profileCountry').innerHTML = ['<option value="">No default country</option>', ...state.countries.map((c) => `<option value="${c.id}" style="${countryFlagOptionStyle(c.code)}">${countryOptionLabel(c)}</option>`)].join('');
+    byId('profileCountry').innerHTML = [`<option value="">${escHtml(selectorText('noDefaultCountry'))}</option>`, ...state.countries.map((c) => `<option value="${c.id}" style="${countryFlagOptionStyle(c.code)}">${countryOptionLabel(c)}</option>`)].join('');
     await loadLanguageFilterOptions();
 }
 
@@ -1708,7 +1816,16 @@ async function loadEvents() {
 }
 
 async function refreshCalendar() { await loadEvents(); renderView(); }
-async function bootstrap() { await loadSession(); await loadSettings(); await loadCountries(); await loadSpeakers(); await refreshCalendar(); }
+async function bootstrap() {
+    if (window.AppI18n) {
+        await window.AppI18n.initI18n(getLang());
+    }
+    await loadSession();
+    await loadSettings();
+    await loadCountries();
+    await loadSpeakers();
+    await refreshCalendar();
+}
 
 function wireDateInput(textId, pickerId, btnId) {
     const txt = byId(textId);
@@ -1839,7 +1956,7 @@ byId('copyEventBtn').addEventListener('click', () => {
     setEventDateTimeInputs(newStart, newEnd);
     byId('copyFromId').value = String(sourceId);
     byId('eventId').value = '';
-    byId('eventDialogTitle').textContent = 'Copy Event';
+    byId('eventDialogTitle').textContent = selectorText('copyEvent');
     byId('deleteEventBtn').hidden = true;
 });
 byId('eventImage').addEventListener('change', () => {

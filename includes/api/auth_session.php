@@ -10,6 +10,8 @@ if ($user) {
     $user['member_id'] = appSettingGet($mysqliConn, 'user_member_id_' . (int)$user['user_id'], '');
     $fmt = appSettingGet($mysqliConn, 'user_datetime_format_' . (int)$user['user_id'], 'eu');
     $user['datetime_format'] = $fmt === 'eu' ? 'eu' : 'us';
+    $lang = strtolower((string)appSettingGet($mysqliConn, 'user_lang_' . (int)$user['user_id'], 'en'));
+    $user['language'] = in_array($lang, ['en', 'de', 'it', 'es', 'fr', 'hu', 'pt', 'ro', 'sk'], true) ? $lang : 'en';
 }
 respond([
     'success' => true,

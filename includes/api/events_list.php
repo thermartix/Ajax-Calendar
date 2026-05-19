@@ -3,6 +3,17 @@ require_once __DIR__ . '/bootstrap.php';
 $countryFilter = isset($_GET['country_id']) && $_GET['country_id'] !== '' ? (int)$_GET['country_id'] : null;
 $start = $_GET['start'] ?? null;
 $end = $_GET['end'] ?? null;
+
+function addUniqueInt(array &$ids, int $id): void {
+    if (!in_array($id, $ids, true)) {
+        $ids[] = $id;
+    }
+}
+
+function placeholders(int $count): string {
+    return implode(',', array_fill(0, $count, '?'));
+}
+
 $europeCountryId = null;
 $euStmt = mysqli_prepare($mysqliConn, 'SELECT id FROM countries WHERE LOWER(code) = "eu" LIMIT 1');
 if ($euStmt) {
@@ -11,6 +22,24 @@ if ($euStmt) {
     mysqli_stmt_close($euStmt);
     if ($euRow && isset($euRow['id'])) {
         $europeCountryId = (int)$euRow['id'];
+    }
+}
+$dachCountryId = null;
+$dachMemberIds = [];
+$dachCodeRows = [];
+$dachCodesSql = 'SELECT id, LOWER(code) AS code FROM countries WHERE LOWER(code) IN ("dach","de","at","ch")';
+$dachCodesRes = mysqli_query($mysqliConn, $dachCodesSql);
+if ($dachCodesRes) {
+    while ($row = mysqli_fetch_assoc($dachCodesRes)) {
+        $dachCodeRows[(string)$row['code']] = (int)$row['id'];
+    }
+}
+if (isset($dachCodeRows['dach'])) {
+    $dachCountryId = (int)$dachCodeRows['dach'];
+}
+foreach (['de', 'at', 'ch'] as $memberCode) {
+    if (isset($dachCodeRows[$memberCode])) {
+        addUniqueInt($dachMemberIds, (int)$dachCodeRows[$memberCode]);
     }
 }
 $hasEventCountries = false;
@@ -84,6 +113,11 @@ $ovrCheck = mysqli_query($mysqliConn, "SHOW TABLES LIKE 'event_occurrence_overri
 if ($ovrCheck && mysqli_num_rows($ovrCheck) > 0) {
     $hasOccurrenceOverrides = true;
 }
+$hasEventSpeakers = false;
+$speakerCheck = mysqli_query($mysqliConn, "SHOW TABLES LIKE 'event_speakers'");
+if ($speakerCheck && mysqli_num_rows($speakerCheck) > 0) {
+    $hasEventSpeakers = true;
+}
 
 $sql = 'SELECT e.id, e.user_id, e.country_id, c.code AS country_code, c.name AS country_name, e.title, e.description, e.event_link, e.image_path, e.attachment_path, ';
 if ($hasRecurringColumns) {
@@ -147,26 +181,42 @@ $params = [];
 $types = '';
 
 if ($countryFilter && $hasEventCountries) {
+    $countryFilterIds = [$countryFilter];
+    if ($dachCountryId) {
+        if ($countryFilter === $dachCountryId) {
+            foreach ($dachMemberIds as $memberId) {
+                addUniqueInt($countryFilterIds, $memberId);
+            }
+        } elseif (in_array($countryFilter, $dachMemberIds, true)) {
+            addUniqueInt($countryFilterIds, $dachCountryId);
+        }
+    }
     if ($europeCountryId && $europeCountryId !== $countryFilter) {
-        $sql .= ' AND EXISTS (SELECT 1 FROM event_countries ecf WHERE ecf.event_id = e.id AND (ecf.country_id = ? OR ecf.country_id = ?))';
-        $types .= 'ii';
-        $params[] = $countryFilter;
-        $params[] = $europeCountryId;
-    } else {
-        $sql .= ' AND EXISTS (SELECT 1 FROM event_countries ecf WHERE ecf.event_id = e.id AND ecf.country_id = ?)';
-        $types .= 'i';
-        $params[] = $countryFilter;
+        addUniqueInt($countryFilterIds, $europeCountryId);
+    }
+    $sql .= ' AND EXISTS (SELECT 1 FROM event_countries ecf WHERE ecf.event_id = e.id AND ecf.country_id IN (' . placeholders(count($countryFilterIds)) . '))';
+    $types .= str_repeat('i', count($countryFilterIds));
+    foreach ($countryFilterIds as $filterId) {
+        $params[] = $filterId;
     }
 } elseif ($countryFilter) {
+    $countryFilterIds = [$countryFilter];
+    if ($dachCountryId) {
+        if ($countryFilter === $dachCountryId) {
+            foreach ($dachMemberIds as $memberId) {
+                addUniqueInt($countryFilterIds, $memberId);
+            }
+        } elseif (in_array($countryFilter, $dachMemberIds, true)) {
+            addUniqueInt($countryFilterIds, $dachCountryId);
+        }
+    }
     if ($europeCountryId && $europeCountryId !== $countryFilter) {
-        $sql .= ' AND (e.country_id = ? OR e.country_id = ?)';
-        $types .= 'ii';
-        $params[] = $countryFilter;
-        $params[] = $europeCountryId;
-    } else {
-        $sql .= ' AND e.country_id = ?';
-        $types .= 'i';
-        $params[] = $countryFilter;
+        addUniqueInt($countryFilterIds, $europeCountryId);
+    }
+    $sql .= ' AND e.country_id IN (' . placeholders(count($countryFilterIds)) . ')';
+    $types .= str_repeat('i', count($countryFilterIds));
+    foreach ($countryFilterIds as $filterId) {
+        $params[] = $filterId;
     }
 }
 if ($start && $hasRecurringColumns) {
@@ -237,38 +287,100 @@ function nthWeekdayOfMonth(int $year, int $month, int $weekday, int $nth): ?Date
     return $candidate;
 }
 
-function deletedOccurrenceStartSet(mysqli $db, int $eventId, bool $hasOccurrenceExceptions): array {
-    if (!$hasOccurrenceExceptions) {
-        return [];
-    }
-    $stmt = mysqli_prepare($db, 'SELECT occurrence_start_at FROM event_occurrence_exceptions WHERE event_id = ?');
-    mysqli_stmt_bind_param($stmt, 'i', $eventId);
-    mysqli_stmt_execute($stmt);
-    $rows = stmtFetchAllAssoc($stmt);
-    mysqli_stmt_close($stmt);
-    $set = [];
-    foreach ($rows as $r) {
-        $set[(string)$r['occurrence_start_at']] = true;
-    }
-    return $set;
+function eventIdCsv(array $eventIds): string {
+    $ints = array_values(array_unique(array_map('intval', $eventIds)));
+    return implode(',', $ints);
 }
 
-function occurrenceOverridesMap(mysqli $db, int $eventId, bool $hasOccurrenceOverrides): array {
-    if (!$hasOccurrenceOverrides) {
-        return [];
-    }
-    $stmt = mysqli_prepare($db, 'SELECT occurrence_start_at, override_json FROM event_occurrence_overrides WHERE event_id = ?');
-    mysqli_stmt_bind_param($stmt, 'i', $eventId);
-    mysqli_stmt_execute($stmt);
-    $rows = stmtFetchAllAssoc($stmt);
-    mysqli_stmt_close($stmt);
+function eventCountriesMap(mysqli $db, array $eventIds, bool $hasEventCountries): array {
+    if (!$hasEventCountries || empty($eventIds)) return [];
+    $csv = eventIdCsv($eventIds);
+    if ($csv === '') return [];
+    $sql = 'SELECT ec.event_id, ec.country_id, c.code, c.name FROM event_countries ec JOIN countries c ON c.id = ec.country_id WHERE ec.event_id IN (' . $csv . ') ORDER BY c.name';
+    $res = mysqli_query($db, $sql);
+    if (!$res) return [];
     $map = [];
-    foreach ($rows as $r) {
-        $k = (string)($r['occurrence_start_at'] ?? '');
+    while ($row = mysqli_fetch_assoc($res)) {
+        $eid = (int)$row['event_id'];
+        if (!isset($map[$eid])) {
+            $map[$eid] = ['ids' => [], 'codes' => [], 'names' => []];
+        }
+        $map[$eid]['ids'][] = (int)$row['country_id'];
+        $map[$eid]['codes'][] = (string)$row['code'];
+        $map[$eid]['names'][] = (string)$row['name'];
+    }
+    return $map;
+}
+
+function interpretationCodesMap(mysqli $db, array $eventIds, bool $hasInterpCountries): array {
+    if (!$hasInterpCountries || empty($eventIds)) return [];
+    $csv = eventIdCsv($eventIds);
+    if ($csv === '') return [];
+    $sql = 'SELECT eic.event_id, c.code FROM event_interpretation_countries eic JOIN countries c ON c.id = eic.country_id WHERE eic.event_id IN (' . $csv . ') ORDER BY c.name';
+    $res = mysqli_query($db, $sql);
+    if (!$res) return [];
+    $map = [];
+    while ($row = mysqli_fetch_assoc($res)) {
+        $eid = (int)$row['event_id'];
+        if (!isset($map[$eid])) $map[$eid] = [];
+        $map[$eid][] = (string)$row['code'];
+    }
+    return $map;
+}
+
+function eventSpeakersMap(mysqli $db, array $eventIds, bool $hasEventSpeakers): array {
+    if (!$hasEventSpeakers || empty($eventIds)) return [];
+    $csv = eventIdCsv($eventIds);
+    if ($csv === '') return [];
+    $sql = 'SELECT es.event_id, s.id, s.name, s.slug FROM event_speakers es JOIN speakers s ON s.id = es.speaker_id WHERE es.event_id IN (' . $csv . ') ORDER BY es.sort_order ASC, s.name ASC';
+    $res = mysqli_query($db, $sql);
+    if (!$res) return [];
+    $map = [];
+    while ($row = mysqli_fetch_assoc($res)) {
+        $eid = (int)$row['event_id'];
+        if (!isset($map[$eid])) $map[$eid] = [];
+        $map[$eid][] = [
+            'id' => (int)$row['id'],
+            'name' => (string)$row['name'],
+            'slug' => (string)$row['slug']
+        ];
+    }
+    return $map;
+}
+
+function deletedOccurrenceStartSets(mysqli $db, array $eventIds, bool $hasOccurrenceExceptions): array {
+    if (!$hasOccurrenceExceptions || empty($eventIds)) return [];
+    $csv = eventIdCsv($eventIds);
+    if ($csv === '') return [];
+    $sql = 'SELECT event_id, occurrence_start_at FROM event_occurrence_exceptions WHERE event_id IN (' . $csv . ')';
+    $res = mysqli_query($db, $sql);
+    if (!$res) return [];
+    $map = [];
+    while ($row = mysqli_fetch_assoc($res)) {
+        $eid = (int)$row['event_id'];
+        $k = (string)$row['occurrence_start_at'];
+        if (!isset($map[$eid])) $map[$eid] = [];
+        $map[$eid][$k] = true;
+    }
+    return $map;
+}
+
+function occurrenceOverridesMaps(mysqli $db, array $eventIds, bool $hasOccurrenceOverrides): array {
+    if (!$hasOccurrenceOverrides || empty($eventIds)) return [];
+    $csv = eventIdCsv($eventIds);
+    if ($csv === '') return [];
+    $sql = 'SELECT event_id, occurrence_start_at, override_json FROM event_occurrence_overrides WHERE event_id IN (' . $csv . ')';
+    $res = mysqli_query($db, $sql);
+    if (!$res) return [];
+    $map = [];
+    while ($row = mysqli_fetch_assoc($res)) {
+        $eid = (int)$row['event_id'];
+        $k = (string)($row['occurrence_start_at'] ?? '');
         if ($k === '') continue;
-        $decoded = json_decode((string)($r['override_json'] ?? ''), true);
+        $decoded = json_decode((string)($row['override_json'] ?? ''), true);
         if (!is_array($decoded)) continue;
-        $map[$k] = $decoded;
+        if (!isset($map[$eid])) $map[$eid] = [];
+        $map[$eid][$k] = $decoded;
     }
     return $map;
 }
@@ -276,26 +388,24 @@ function occurrenceOverridesMap(mysqli $db, int $eventId, bool $hasOccurrenceOve
 $events = [];
 $rangeStart = $start ? new DateTime($start . ' 00:00:00') : null;
 $rangeEnd = $end ? new DateTime($end . ' 23:59:59') : null;
+$eventIds = array_values(array_map(static function(array $ev): int { return (int)$ev['id']; }, $rows));
+$countriesByEventId = eventCountriesMap($mysqliConn, $eventIds, $hasEventCountries);
+$interpretationByEventId = interpretationCodesMap($mysqliConn, $eventIds, $hasInterpCountries);
+$speakersByEventId = eventSpeakersMap($mysqliConn, $eventIds, $hasEventSpeakers);
+$deletedStartsByEventId = deletedOccurrenceStartSets($mysqliConn, $eventIds, $hasOccurrenceExceptions);
+$overridesByEventId = occurrenceOverridesMaps($mysqliConn, $eventIds, $hasOccurrenceOverrides);
 
 foreach ($rows as $ev) {
     $ev['id'] = (int)$ev['id'];
     $ev['country_id'] = (int)$ev['country_id'];
     $ev['user_id'] = (int)$ev['user_id'];
-
-    $cset = eventCountries($mysqliConn, $ev['id'], $ev['country_id'], $ev['country_code'], $ev['country_name'], $hasEventCountries);
+    $fallbackCountrySet = ['ids' => [$ev['country_id']], 'codes' => [$ev['country_code']], 'names' => [$ev['country_name']]];
+    $cset = $countriesByEventId[$ev['id']] ?? $fallbackCountrySet;
     $ev['country_ids'] = $cset['ids'];
     $ev['country_codes'] = $cset['codes'];
     $ev['country_names'] = $cset['names'];
-    $ev['interpretation_country_codes'] = [];
-    if ($hasInterpCountries) {
-        $iStmt = mysqli_prepare($mysqliConn, 'SELECT c.code FROM event_interpretation_countries eic JOIN countries c ON c.id = eic.country_id WHERE eic.event_id = ? ORDER BY c.name');
-        mysqli_stmt_bind_param($iStmt, 'i', $ev['id']);
-        mysqli_stmt_execute($iStmt);
-        foreach (stmtFetchAllAssoc($iStmt) as $row) {
-            $ev['interpretation_country_codes'][] = $row['code'];
-        }
-        mysqli_stmt_close($iStmt);
-    }
+    $ev['interpretation_country_codes'] = $interpretationByEventId[$ev['id']] ?? [];
+    $ev['speakers'] = $speakersByEventId[$ev['id']] ?? [];
 
     $ev['can_edit'] = $user ? canEditEvent($user, ['user_id' => (int)$ev['user_id'], 'country_id' => (int)$ev['country_id'], 'country_ids' => $ev['country_ids']]) : false;
     $ev['creator_name'] = trim(($ev['first_name'] ?? '') . ' ' . ($ev['last_name'] ?? ''));
@@ -312,8 +422,8 @@ foreach ($rows as $ev) {
     $baseStart = new DateTime($ev['start_at']);
     $baseEnd = new DateTime($ev['end_at']);
     $recurrenceUntil = !empty($ev['recurrence_until']) ? new DateTime($ev['recurrence_until']) : null;
-    $deletedStarts = deletedOccurrenceStartSet($mysqliConn, $ev['id'], $hasOccurrenceExceptions);
-    $overrideMap = occurrenceOverridesMap($mysqliConn, $ev['id'], $hasOccurrenceOverrides);
+    $deletedStarts = $deletedStartsByEventId[$ev['id']] ?? [];
+    $overrideMap = $overridesByEventId[$ev['id']] ?? [];
     $durationSeconds = max(0, $baseEnd->getTimestamp() - $baseStart->getTimestamp());
     $nths = [];
     if (!empty($ev['recur_weeks'])) {

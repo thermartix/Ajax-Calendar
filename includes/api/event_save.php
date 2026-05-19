@@ -136,6 +136,11 @@ $soldOutCheck = mysqli_query($mysqliConn, "SHOW COLUMNS FROM events LIKE 'sold_o
 if ($soldOutCheck && mysqli_num_rows($soldOutCheck) > 0) {
     $hasSoldOutColumn = true;
 }
+$hasEventSpeakers = false;
+$speakerTblCheck = mysqli_query($mysqliConn, "SHOW TABLES LIKE 'event_speakers'");
+if ($speakerTblCheck && mysqli_num_rows($speakerTblCheck) > 0) {
+    $hasEventSpeakers = true;
+}
 
 $id = isset($_POST['id']) && $_POST['id'] !== '' ? (int)$_POST['id'] : null;
 $copyFromId = isset($_POST['copy_from_id']) && $_POST['copy_from_id'] !== '' ? (int)$_POST['copy_from_id'] : null;
@@ -153,6 +158,8 @@ $countryIdPrimary = (int)($countryIds[0] ?? 0);
 $eventLanguageCountryId = isset($_POST['event_language_country_id']) && $_POST['event_language_country_id'] !== '' ? (int)$_POST['event_language_country_id'] : null;
 $interpRaw = isset($_POST['interpretation_country_ids']) ? json_decode((string)$_POST['interpretation_country_ids'], true) : [];
 $interpretationCountryIds = is_array($interpRaw) ? array_values(array_unique(array_map('intval', $interpRaw))) : [];
+$speakerIdsRaw = isset($_POST['speaker_ids']) ? json_decode((string)$_POST['speaker_ids'], true) : [];
+$speakerIds = is_array($speakerIdsRaw) ? array_values(array_unique(array_map('intval', $speakerIdsRaw))) : [];
 $startAt = (string)($_POST['start_at'] ?? '');
 $endAt = (string)($_POST['end_at'] ?? '');
 $recurrenceType = (string)($_POST['recurrence_type'] ?? 'none');
@@ -589,6 +596,21 @@ if ($id) {
             mysqli_stmt_close($iiStmt);
         }
     }
+    if ($hasEventSpeakers) {
+        $dsStmt = mysqli_prepare($mysqliConn, 'DELETE FROM event_speakers WHERE event_id = ?');
+        mysqli_stmt_bind_param($dsStmt, 'i', $id);
+        mysqli_stmt_execute($dsStmt);
+        mysqli_stmt_close($dsStmt);
+        if (!empty($speakerIds)) {
+            $isStmt = mysqli_prepare($mysqliConn, 'INSERT INTO event_speakers (event_id, speaker_id, sort_order) VALUES (?, ?, ?)');
+            foreach ($speakerIds as $idx => $sid) {
+                $sort = (int)$idx;
+                mysqli_stmt_bind_param($isStmt, 'iii', $id, $sid, $sort);
+                mysqli_stmt_execute($isStmt);
+            }
+            mysqli_stmt_close($isStmt);
+        }
+    }
 
     respond(['success' => true, 'id' => $id]);
 }
@@ -736,6 +758,15 @@ if ($hasInterpTable && !empty($interpretationCountryIds)) {
         mysqli_stmt_execute($iiStmt);
     }
     mysqli_stmt_close($iiStmt);
+}
+if ($hasEventSpeakers && !empty($speakerIds)) {
+    $isStmt = mysqli_prepare($mysqliConn, 'INSERT INTO event_speakers (event_id, speaker_id, sort_order) VALUES (?, ?, ?)');
+    foreach ($speakerIds as $idx => $sid) {
+        $sort = (int)$idx;
+        mysqli_stmt_bind_param($isStmt, 'iii', $newId, $sid, $sort);
+        mysqli_stmt_execute($isStmt);
+    }
+    mysqli_stmt_close($isStmt);
 }
 
 respond(['success' => true, 'id' => $newId]);

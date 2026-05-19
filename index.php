@@ -75,11 +75,11 @@ header('X-Robots-Tag: noindex, nofollow', true);
             <div id="eventDialogEditPanel">
             <div id="eventFormImagePreview" class="event-form-image-preview"></div>
 
-            <label for="eventTitle">Title</label>
+            <label for="eventTitle" id="eventTitleLabel">Title</label>
             <input id="eventTitle" required maxlength="180">
 
             <div class="description-mode-head">
-                <label for="eventDescription">Description</label>
+                <label for="eventDescription" id="eventDescriptionLabel">Description</label>
                 <div class="event-mode-inline">
                     <label id="eventModeLabel">Event type</label>
                     <div class="option-group" role="radiogroup" aria-labelledby="eventModeLabel">
@@ -98,7 +98,7 @@ header('X-Robots-Tag: noindex, nofollow', true);
 
             <section class="event-datetime-block">
                 <div class="event-datetime-row">
-                    <label for="eventStartDate">Event date</label>
+                    <label for="eventStartDate" id="eventStartDateLabel">Event date</label>
                     <div class="dt-row">
                         <input id="eventStartDate" type="text" required placeholder="DD.MM.YYYY">
                         <button type="button" id="eventStartDatePickBtn">Pick</button>
@@ -106,11 +106,11 @@ header('X-Robots-Tag: noindex, nofollow', true);
                     </div>
                     <label class="switch-row" for="eventMultiDay">
                         <input id="eventMultiDay" type="checkbox" value="1">
-                        <span>Multi day event</span>
+                        <span id="eventMultiDayLabel">Multi day event</span>
                     </label>
                 </div>
                 <div id="eventEndDateWrap" class="event-datetime-row" hidden>
-                    <label for="eventEndDate">End date</label>
+                    <label for="eventEndDate" id="eventEndDateLabel">End date</label>
                     <div class="dt-row">
                         <input id="eventEndDate" type="text" placeholder="DD.MM.YYYY">
                         <button type="button" id="eventEndDatePickBtn">Pick</button>
@@ -118,9 +118,9 @@ header('X-Robots-Tag: noindex, nofollow', true);
                     </div>
                 </div>
                 <div class="event-datetime-row">
-                    <label for="eventStartTime">Start time</label>
+                    <label for="eventStartTime" id="eventStartTimeLabel">Start time</label>
                     <input id="eventStartTime" type="text" required placeholder="HH:MM">
-                    <label for="eventEndTime">End time</label>
+                    <label for="eventEndTime" id="eventEndTimeLabel">End time</label>
                     <input id="eventEndTime" type="text" required placeholder="HH:MM">
                 </div>
             </section>
@@ -162,13 +162,13 @@ header('X-Robots-Tag: noindex, nofollow', true);
             <label for="eventImage">Header Image (1200x420 recommended)</label>
             <input id="eventImage" type="file" accept=".jpg,.jpeg,.png,.webp">
 
-            <label for="eventCountry">Country</label>
+            <label for="eventCountry" id="eventCountryLabel">Country</label>
             <select id="eventCountry" multiple size="6"></select>
 
-            <label for="eventLanguageCountry">Event Language</label>
+            <label for="eventLanguageCountry" id="eventLanguageCountryLabel">Event Language</label>
             <select id="eventLanguageCountry"></select>
 
-            <label for="eventInterpretationCountries">Interpretation</label>
+            <label for="eventInterpretationCountries" id="eventInterpretationCountriesLabel">Interpretation</label>
             <select id="eventInterpretationCountries" multiple size="5"></select>
 
             <input id="eventStart" type="hidden">
@@ -176,13 +176,13 @@ header('X-Robots-Tag: noindex, nofollow', true);
             <input id="eventStartPicker" type="hidden">
             <input id="eventEndPicker" type="hidden">
 
-            <label for="eventRecurrenceType">Recurrence</label>
+            <label for="eventRecurrenceType" id="eventRecurrenceTypeLabel">Recurrence</label>
             <select id="eventRecurrenceType">
                 <option value="none">No recurrence</option>
                 <option value="monthly_nth_weekday">Monthly: nth weekday</option>
             </select>
             <div id="recurrenceMonthlyWrap">
-                <label for="eventRecurWeek">Week in month</label>
+                <label for="eventRecurWeek" id="eventRecurWeekLabel">Week in month</label>
                 <select id="eventRecurWeek" multiple size="5">
                     <option value="1">1st</option>
                     <option value="2">2nd</option>
@@ -190,7 +190,7 @@ header('X-Robots-Tag: noindex, nofollow', true);
                     <option value="4">4th</option>
                     <option value="5">5th</option>
                 </select>
-                <label for="eventRecurWeekday">Weekday</label>
+                <label for="eventRecurWeekday" id="eventRecurWeekdayLabel">Weekday</label>
                 <select id="eventRecurWeekday">
                     <option value="1">Monday</option>
                     <option value="2">Tuesday</option>
@@ -200,24 +200,31 @@ header('X-Robots-Tag: noindex, nofollow', true);
                     <option value="6">Saturday</option>
                     <option value="0">Sunday</option>
                 </select>
-                <label for="eventRecurrenceUntil">Recurrence End (optional)</label>
+                <label for="eventRecurrenceUntil" id="eventRecurrenceUntilLabel">Recurrence End (optional)</label>
                 <div class="dt-row">
                     <input id="eventRecurrenceUntil" placeholder="DD/MM/YYYY HH:MM">
                     <button type="button" id="eventRecurrenceUntilPickBtn">Pick</button>
                     <input id="eventRecurrenceUntilPicker" type="datetime-local" class="picker-proxy">
                 </div>
                 <section id="hiddenOccurrencesWrap" class="hidden-occurrences-wrap" hidden>
-                    <h4>Hidden events</h4>
+                    <h4 id="hiddenEventsTitle">Hidden events</h4>
                     <table class="hidden-occurrences-table">
                         <thead>
                             <tr>
-                                <th>Date</th>
-                                <th>Action</th>
+                                <th id="hiddenEventsDateHead">Date</th>
+                                <th id="hiddenEventsActionHead">Action</th>
                             </tr>
                         </thead>
                         <tbody id="hiddenOccurrencesBody"></tbody>
                     </table>
                 </section>
+            </div>
+            <div class="speaker-form-block">
+                <label for="eventSpeakers" id="eventSpeakersLabel">Speakers (optional)</label>
+                <select id="eventSpeakers" multiple size="5"></select>
+                <div class="dialog-actions" style="justify-content:flex-start; margin-top:6px;">
+                    <button type="button" id="manageSpeakersBtn">Manage speakers</button>
+                </div>
             </div>
             </div>
             <section id="eventDialogVisitorPanel" class="event-dialog-visitor-panel" hidden></section>
@@ -239,6 +246,7 @@ header('X-Robots-Tag: noindex, nofollow', true);
                 <h3 id="eventViewTitle"></h3>
                 <div id="eventViewCountriesRow"></div>
                 <p id="eventViewMeta" class="event-meta"></p>
+                <p id="eventViewSpeakers" class="event-meta"></p>
                 <p id="eventViewRecurrence" class="event-meta"></p>
                 <p id="eventViewTicketWrap"></p>
                 <p id="eventViewDescription"></p>
@@ -333,8 +341,8 @@ header('X-Robots-Tag: noindex, nofollow', true);
 
     <dialog id="recurringDeleteDialog">
         <div class="error-dialog-body">
-            <h3>Delete Recurring Event</h3>
-            <p>Do you really want to delete this meeting offering?</p>
+            <h3 id="recurringDeleteTitle">Delete Recurring Event</h3>
+            <p id="recurringDeleteText">Do you really want to delete this meeting offering?</p>
             <div class="dialog-actions">
                 <button type="button" id="recurringDeleteCancelBtn">Cancel</button>
                 <button type="button" id="recurringDeleteOccurrenceBtn" class="accent">Only this event</button>
@@ -346,8 +354,8 @@ header('X-Robots-Tag: noindex, nofollow', true);
 
     <dialog id="recurringSaveScopeDialog">
         <div class="error-dialog-body">
-            <h3>Save Recurring Event Changes</h3>
-            <p>Should these changes apply only to this event or to all events in the series?</p>
+            <h3 id="recurringSaveScopeTitle">Save Recurring Event Changes</h3>
+            <p id="recurringSaveScopeText">Should these changes apply only to this event or to all events in the series?</p>
             <div class="dialog-actions">
                 <button type="button" id="recurringSaveScopeCancelBtn">Cancel</button>
                 <button type="button" id="recurringSaveScopeOccurrenceBtn" class="accent">Only this event</button>
@@ -358,7 +366,7 @@ header('X-Robots-Tag: noindex, nofollow', true);
 
     <dialog id="recurringOverwriteOverridesDialog">
         <div class="error-dialog-body">
-            <h3>Overwrite Individual Event Edits?</h3>
+            <h3 id="recurringOverwriteTitle">Overwrite Individual Event Edits?</h3>
             <p id="recurringOverwriteOverridesText"></p>
             <div class="dialog-actions">
                 <button type="button" id="recurringOverwriteNoBtn">No (keep individual edits)</button>
@@ -398,6 +406,9 @@ header('X-Robots-Tag: noindex, nofollow', true);
         <p id="authMessage"></p>
     </dialog>
 
+    <script src="includes/i18n/en.js"></script>
+    <script src="https://unpkg.com/i18next@23.16.4/dist/umd/i18next.min.js"></script>
+    <script src="includes/i18n-loader.js"></script>
     <script src="main.js"></script>
 </body>
 </html>

@@ -16,16 +16,26 @@ header('X-Robots-Tag: noindex, nofollow', true);
             <div class="brand">
                 <img id="brandLogo" src="assets/logo.png" alt="Immunotec Logo">
                 <div>
-                    <h1>Admin Settings</h1>
-                    <p>Global calendar and account configuration</p>
+                    <h1 id="adminTitle">Admin Settings</h1>
+                    <p id="adminSubtitle">Global calendar and account configuration</p>
                 </div>
             </div>
             <div class="header-right">
-                <a href="./"><button type="button">Back to calendar</button></a>
+                <a href="./"><button type="button" id="adminBackBtn">Back to calendar</button></a>
             </div>
         </header>
 
         <main class="panel" style="padding:16px;">
+            <section id="speakerTools" hidden>
+                <article class="event-card">
+                    <h3>Speaker Management</h3>
+                    <p>Open the dedicated speaker page to create and update speaker profiles.</p>
+                    <div class="dialog-actions" style="justify-content:flex-start;">
+                        <button id="openSpeakerManagementBtn" type="button" class="accent">Open Speaker Management</button>
+                    </div>
+                </article>
+            </section>
+
             <section id="adminOnly" hidden>
                 <article class="event-card">
                     <h3>Global Calendar Settings</h3>
@@ -105,6 +115,10 @@ header('X-Robots-Tag: noindex, nofollow', true);
             <p id="adminMsg"></p>
         </main>
     </div>
+    <script>window.APP_I18N_BASE = 'includes/i18n/';</script>
+    <script src="includes/i18n/en.js"></script>
+    <script src="https://unpkg.com/i18next@23.16.4/dist/umd/i18next.min.js"></script>
+    <script src="includes/i18n-loader.js"></script>
     <script src="admin.js"></script>
 </body>
 </html>

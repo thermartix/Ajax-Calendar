@@ -1,5 +1,7 @@
 const byId = (id) => document.getElementById(id);
 let csrfToken = '';
+const getLang = () => (window.AppI18n ? window.AppI18n.normalizeLang(localStorage.getItem('app_lang') || 'en') : 'en');
+const t = (k) => (window.i18next && window.i18next.isInitialized ? window.i18next.t(k) : k);
 async function api(path, options = {}) {
     const method = String(options.method || 'GET').toUpperCase();
     const headers = { 'Content-Type': 'application/json', ...(options.headers || {}) };
@@ -11,7 +13,7 @@ async function api(path, options = {}) {
     if (d && typeof d.csrf_token === 'string' && d.csrf_token) {
         csrfToken = d.csrf_token;
     }
-    if (!r.ok || d.success === false) throw new Error(d.message || 'Request failed');
+    if (!r.ok || d.success === false) throw new Error(d.message || t('requestFailed'));
     return d;
 }
 
@@ -54,8 +56,8 @@ async function addSingleUser() {
     const email = String(byId('newUserEmail').value || '').trim().toLowerCase();
     const member_id = String(byId('newUserId').value || '').trim();
     const role = String(byId('newUserRole').value || 'visitor');
-    if (!isValidEmail(email)) throw new Error('Please enter a valid email');
-    if (!['visitor', 'editor', 'admin'].includes(role)) throw new Error('Invalid user level');
+    if (!isValidEmail(email)) throw new Error(t('adminInvalidEmail'));
+    if (!['visitor', 'editor', 'admin'].includes(role)) throw new Error(t('adminInvalidUserLevel'));
     await api('includes/api/admin_user_create.php', {
         method: 'POST',
         body: JSON.stringify({ first_name, last_name, email, member_id, role })
@@ -99,7 +101,7 @@ function renderUsersTable() {
         return hay.includes(needle);
     });
     if (!users.length) {
-        root.innerHTML = '<p class="event-meta">No matching users found.</p>';
+        root.innerHTML = `<p class="event-meta">${escHtml(t('adminNoMatchingUsers'))}</p>`;
         return;
     }
     root.innerHTML = `
@@ -156,7 +158,7 @@ function renderUsersTable() {
                     allowed_country_ids: allowed
                 })
             });
-            byId('adminMsg').textContent = 'User updated';
+            byId('adminMsg').textContent = t('adminUserUpdated');
             await loadUsers();
         });
     });
@@ -165,18 +167,25 @@ function renderUsersTable() {
         btn.addEventListener('click', async () => {
             const userId = Number(btn.dataset.userId || 0);
             const email = document.getElementById(`em_${userId}`).value || `user #${userId}`;
-            if (!window.confirm(`Delete user ${email}? This cannot be undone.`)) return;
+            if (!window.confirm(t('adminDeleteUserConfirm').replace('{email}', email))) return;
             await api('includes/api/admin_user_delete.php', {
                 method: 'POST',
                 body: JSON.stringify({ user_id: userId })
             });
-            byId('adminMsg').textContent = 'User deleted';
+            byId('adminMsg').textContent = t('adminUserDeleted');
             await loadUsers();
         });
     });
 }
 
 async function init() {
+    if (window.AppI18n) await window.AppI18n.initI18n(getLang());
+    const title = byId('adminTitle');
+    const subtitle = byId('adminSubtitle');
+    const backBtn = byId('adminBackBtn');
+    if (title) title.textContent = t('adminTitle');
+    if (subtitle) subtitle.textContent = t('adminSubtitle');
+    if (backBtn) backBtn.textContent = t('backToCalendar');
     const session = await api('includes/api/auth_session.php');
     if (!session.loggedIn) {
         location.href = 'login/';
@@ -186,9 +195,13 @@ async function init() {
     const settings = await api('includes/api/settings.php');
     byId('timezoneSelect').innerHTML = timezones.map((tz) => `<option value="${tz}" ${settings.calendarTimezone === tz ? 'selected' : ''}>${tz}</option>`).join('');
     byId('showEventAuthorToggle').checked = settings.showEventAuthor !== false;
+    const role = String(session.user.role || '');
+    if (role === 'admin' || role === 'editor') {
+        byId('speakerTools').hidden = false;
+    }
 
     await loadCountries();
-    if (session.user.role === 'admin') {
+    if (role === 'admin') {
         byId('adminOnly').hidden = false;
         byId('usersFilter').addEventListener('input', () => renderUsersTable());
         await loadUsers();
@@ -197,12 +210,12 @@ async function init() {
 
 byId('saveTimezone').onclick = async () => {
     await api('includes/api/admin_timezone_update.php', { method: 'POST', body: JSON.stringify({ calendar_timezone: byId('timezoneSelect').value, show_event_author: byId('showEventAuthorToggle').checked ? 1 : 0 }) });
-    byId('adminMsg').textContent = 'Settings saved';
+    byId('adminMsg').textContent = t('adminSettingsSaved');
 };
 byId('addUserBtn').onclick = async () => {
     try {
         await addSingleUser();
-        byId('adminMsg').textContent = 'User created';
+        byId('adminMsg').textContent = t('adminUserCreated');
         byId('newUserFirst').value = '';
         byId('newUserLast').value = '';
         byId('newUserEmail').value = '';
@@ -216,15 +229,15 @@ byId('addUserBtn').onclick = async () => {
 byId('importUsersBtn').onclick = async () => {
     try {
         const file = byId('usersCsvFile').files?.[0];
-        if (!file) throw new Error('Please choose a CSV file first');
+        if (!file) throw new Error(t('adminChooseCsvFirst'));
         const text = await file.text();
         const users = parseUsersCsv(text);
-        if (!users.length) throw new Error('CSV has no rows');
+        if (!users.length) throw new Error(t('adminCsvNoRows'));
         await api('includes/api/admin_user_import.php', {
             method: 'POST',
             body: JSON.stringify({ users })
         });
-        byId('adminMsg').textContent = `Imported ${users.length} users`;
+        byId('adminMsg').textContent = t('adminImportedUsers').replace('{count}', String(users.length));
         byId('usersCsvFile').value = '';
         await loadUsers();
     } catch (e) {
@@ -250,12 +263,15 @@ byId('saveCountries').onclick = async () => {
         return { code: (code || '').trim(), name: (name || '').trim() };
     });
     const res = await api('includes/api/admin_countries_save.php', { method: 'POST', body: JSON.stringify({ countries: items }) });
-    let msg = 'Countries saved';
+    let msg = t('adminCountriesSaved');
     if ((res.skipped_in_use_codes || []).length) {
-        msg += ` (kept in use: ${(res.skipped_in_use_codes || []).join(', ')})`;
+        msg += ` (${t('adminKeptInUse')}: ${(res.skipped_in_use_codes || []).join(', ')})`;
     }
     byId('adminMsg').textContent = msg;
     await loadCountries();
+};
+byId('openSpeakerManagementBtn').onclick = () => {
+    window.location.href = 'speaker_manage.php';
 };
 
 init().catch((e) => { byId('adminMsg').textContent = e.message; });

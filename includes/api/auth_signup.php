@@ -66,7 +66,7 @@ $confirmUrl = $scheme . '://' . $host . $appBasePath . '/includes/api/auth_verif
 $subject = 'Confirm your account email';
 $body = "Hello,\n\nPlease confirm your account by clicking this link:\n{$confirmUrl}\n\nThis link expires in 24 hours.";
 $headers = 'From: no-reply@immeet.ing' . "\r\n" . 'Reply-To: no-reply@immeet.ing' . "\r\n" . 'X-Mailer: PHP/' . phpversion();
-$sent = @mail((string)$email, $subject, $body, $headers);
+$sent = mail((string)$email, $subject, $body, $headers);
 if (!$sent) {
     respond(['success' => false, 'message' => 'Could not send confirmation email from this server.'], 500);
 }

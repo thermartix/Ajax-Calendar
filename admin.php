@@ -26,23 +26,6 @@ header('X-Robots-Tag: noindex, nofollow', true);
         </header>
 
         <main class="panel" style="padding:16px;">
-            <section class="event-card profile-stack">
-                <h3>My Profile</h3>
-                <label for="profileFirst">First Name</label>
-                <input id="profileFirst">
-                <label for="profileLast">Last Name</label>
-                <input id="profileLast">
-                <label for="profileEmail">E-mail</label>
-                <input id="profileEmail" type="email">
-                <label for="profileNewPassword">New Password</label>
-                <input id="profileNewPassword" type="password">
-                <label for="profileNewPassword2">Repeat New Password</label>
-                <input id="profileNewPassword2" type="password">
-                <div class="dialog-actions">
-                    <button id="saveProfile" class="accent">Save Profile</button>
-                </div>
-            </section>
-
             <section id="adminOnly" hidden>
                 <article class="event-card">
                     <h3>Global Calendar Settings</h3>
@@ -54,6 +37,51 @@ header('X-Robots-Tag: noindex, nofollow', true);
                     </label>
                     <div class="dialog-actions">
                         <button id="saveTimezone" class="accent">Save Global Settings</button>
+                    </div>
+                </article>
+
+                <article class="event-card">
+                    <h3>Add User</h3>
+                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 8px 12px; align-items:end;">
+                        <div>
+                            <label for="newUserFirst">First name</label>
+                            <input id="newUserFirst">
+                        </div>
+                        <div>
+                            <label for="newUserLast">Last name</label>
+                            <input id="newUserLast">
+                        </div>
+                        <div>
+                            <label for="newUserEmail">E-mail</label>
+                            <input id="newUserEmail" type="email">
+                        </div>
+                        <div>
+                            <label for="newUserId">ID</label>
+                            <input id="newUserId">
+                        </div>
+                        <div style="grid-column: 1 / span 2;">
+                            <label for="newUserRole">User level</label>
+                            <select id="newUserRole">
+                                <option value="visitor">visitor</option>
+                                <option value="editor">editor</option>
+                                <option value="admin">admin</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="dialog-actions">
+                        <button id="addUserBtn" class="accent">Add user</button>
+                    </div>
+                </article>
+
+                <article class="event-card">
+                    <h3>Bulk Add Users (CSV)</h3>
+                    <p>Columns: <code>name,surname,e-mail,ID,user level</code></p>
+                    <div class="dialog-actions" style="justify-content:flex-start; margin-top:0;">
+                        <button id="downloadUsersCsvTemplateBtn" type="button">Download CSV template</button>
+                    </div>
+                    <input id="usersCsvFile" type="file" accept=".csv,text/csv">
+                    <div class="dialog-actions">
+                        <button id="importUsersBtn" class="accent">Import CSV</button>
                     </div>
                 </article>
 

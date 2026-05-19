@@ -23,5 +23,5 @@ Database:
 - Recurring monthly events: run `database/migration_2026_04_recurring_events.sql`
 
 Config:
-- Local private config: `includes/database.config.php` (git-ignored)
-- Template in git: `includes/database.config.php.txt`
+- Local private config: `.env` (git-ignored)
+- Template in git: `.env.example`

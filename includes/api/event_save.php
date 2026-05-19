@@ -269,7 +269,33 @@ if ($soldOut === 1 && !$hasSoldOutColumn) {
 $uploadBase = __DIR__ . '/../../assets/uploads';
 $webBase = 'assets/uploads';
 if (!is_dir($uploadBase)) {
-    @mkdir($uploadBase, 0775, true);
+    if (!mkdir($uploadBase, 0775, true) && !is_dir($uploadBase)) {
+        respond(['success' => false, 'message' => 'Upload directory is not available on server'], 500);
+    }
+}
+
+function detectMimeType(string $path): string {
+    if (function_exists('finfo_open')) {
+        $f = @finfo_open(FILEINFO_MIME_TYPE);
+        if ($f) {
+            $m = @finfo_file($f, $path);
+            @finfo_close($f);
+            if (is_string($m) && $m !== '') return strtolower($m);
+        }
+    }
+    if (function_exists('mime_content_type')) {
+        $m = @mime_content_type($path);
+        if (is_string($m) && $m !== '') return strtolower($m);
+    }
+    return '';
+}
+
+function hasPdfSignature(string $path): bool {
+    $h = @fopen($path, 'rb');
+    if (!$h) return false;
+    $head = @fread($h, 5);
+    @fclose($h);
+    return $head === '%PDF-';
 }
 
 function saveFileUpload(array $file, string $targetDir, string $webDir, array $allowedExts, string $prefix, string $startAt, ?int $maxWidth = null, ?int $maxHeight = null): ?string {
@@ -280,6 +306,32 @@ function saveFileUpload(array $file, string $targetDir, string $webDir, array $a
     $name = $file['name'] ?? 'file';
     $ext = strtolower(pathinfo($name, PATHINFO_EXTENSION));
     if (!in_array($ext, $allowedExts, true)) return null;
+    $tmpPath = (string)$file['tmp_name'];
+
+    $imageExts = ['jpg', 'jpeg', 'png', 'webp'];
+    if (in_array($ext, $imageExts, true)) {
+        $info = function_exists('getimagesize') ? @getimagesize($tmpPath) : false;
+        if (!is_array($info) || empty($info[0]) || empty($info[1]) || empty($info[2])) return null;
+        $imgType = (int)$info[2];
+        $validByExt = ($ext === 'jpg' || $ext === 'jpeg') ? ($imgType === IMAGETYPE_JPEG)
+            : ($ext === 'png' ? ($imgType === IMAGETYPE_PNG) : ($imgType === IMAGETYPE_WEBP));
+        if (!$validByExt) return null;
+        $mime = detectMimeType($tmpPath);
+        $allowedMimes = [
+            'jpg' => ['image/jpeg'],
+            'jpeg' => ['image/jpeg'],
+            'png' => ['image/png'],
+            'webp' => ['image/webp']
+        ];
+        if ($mime !== '' && !in_array($mime, $allowedMimes[$ext] ?? [], true)) return null;
+    } elseif ($ext === 'pdf') {
+        if (!hasPdfSignature($tmpPath)) return null;
+        $mime = detectMimeType($tmpPath);
+        if ($mime !== '' && !in_array($mime, ['application/pdf', 'application/x-pdf'], true)) return null;
+    } else {
+        return null;
+    }
+
     $dateSeed = preg_replace('/[^0-9]/', '', substr($startAt, 0, 10));
     if ($dateSeed === '') $dateSeed = date('Ymd');
     $base = strtolower($prefix . '_' . $dateSeed);
@@ -292,7 +344,7 @@ function saveFileUpload(array $file, string $targetDir, string $webDir, array $a
     $dest = rtrim($targetDir, '/\\') . DIRECTORY_SEPARATOR . $safe;
     $shouldResize = $maxWidth !== null && $maxHeight !== null && in_array($ext, ['jpg', 'jpeg', 'png', 'webp'], true);
     if ($shouldResize && function_exists('getimagesize')) {
-        $info = @getimagesize($file['tmp_name']);
+        $info = @getimagesize($tmpPath);
         if (is_array($info) && !empty($info[0]) && !empty($info[1]) && !empty($info[2])) {
             $srcW = (int)$info[0];
             $srcH = (int)$info[1];
@@ -301,9 +353,9 @@ function saveFileUpload(array $file, string $targetDir, string $webDir, array $a
             $dstH = max(1, (int)floor($srcH * $scale));
 
             $srcImg = null;
-            if ($info[2] === IMAGETYPE_JPEG && function_exists('imagecreatefromjpeg')) $srcImg = @imagecreatefromjpeg($file['tmp_name']);
-            if ($info[2] === IMAGETYPE_PNG && function_exists('imagecreatefrompng')) $srcImg = @imagecreatefrompng($file['tmp_name']);
-            if ($info[2] === IMAGETYPE_WEBP && function_exists('imagecreatefromwebp')) $srcImg = @imagecreatefromwebp($file['tmp_name']);
+            if ($info[2] === IMAGETYPE_JPEG && function_exists('imagecreatefromjpeg')) $srcImg = @imagecreatefromjpeg($tmpPath);
+            if ($info[2] === IMAGETYPE_PNG && function_exists('imagecreatefrompng')) $srcImg = @imagecreatefrompng($tmpPath);
+            if ($info[2] === IMAGETYPE_WEBP && function_exists('imagecreatefromwebp')) $srcImg = @imagecreatefromwebp($tmpPath);
 
             if ($srcImg) {
                 $outImg = $srcImg;
@@ -334,7 +386,7 @@ function saveFileUpload(array $file, string $targetDir, string $webDir, array $a
         }
     }
 
-    if (!move_uploaded_file($file['tmp_name'], $dest)) return null;
+    if (!move_uploaded_file($tmpPath, $dest)) return null;
     return rtrim($webDir, '/\\') . '/' . $safe;
 }
 

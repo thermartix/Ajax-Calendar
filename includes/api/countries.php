@@ -16,7 +16,7 @@ function ensureCountry(mysqli $db, string $code, string $name): void {
     $ins = mysqli_prepare($db, 'INSERT INTO countries (code, name) VALUES (?, ?)');
     if (!$ins) return;
     mysqli_stmt_bind_param($ins, 'ss', $code, $name);
-    @mysqli_stmt_execute($ins);
+    mysqli_stmt_execute($ins);
     mysqli_stmt_close($ins);
 }
 

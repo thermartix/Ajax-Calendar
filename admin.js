@@ -1,7 +1,16 @@
 const byId = (id) => document.getElementById(id);
+let csrfToken = '';
 async function api(path, options = {}) {
-    const r = await fetch(path, { headers: { 'Content-Type': 'application/json' }, ...options });
+    const method = String(options.method || 'GET').toUpperCase();
+    const headers = { 'Content-Type': 'application/json', ...(options.headers || {}) };
+    if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method) && csrfToken) {
+        headers['X-CSRF-Token'] = csrfToken;
+    }
+    const r = await fetch(path, { ...options, method, headers });
     const d = await r.json();
+    if (d && typeof d.csrf_token === 'string' && d.csrf_token) {
+        csrfToken = d.csrf_token;
+    }
     if (!r.ok || d.success === false) throw new Error(d.message || 'Request failed');
     return d;
 }
@@ -33,6 +42,39 @@ function escHtml(v) {
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#39;');
+}
+
+function isValidEmail(v) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(v || '').trim());
+}
+
+async function addSingleUser() {
+    const first_name = String(byId('newUserFirst').value || '').trim();
+    const last_name = String(byId('newUserLast').value || '').trim();
+    const email = String(byId('newUserEmail').value || '').trim().toLowerCase();
+    const member_id = String(byId('newUserId').value || '').trim();
+    const role = String(byId('newUserRole').value || 'visitor');
+    if (!isValidEmail(email)) throw new Error('Please enter a valid email');
+    if (!['visitor', 'editor', 'admin'].includes(role)) throw new Error('Invalid user level');
+    await api('includes/api/admin_user_create.php', {
+        method: 'POST',
+        body: JSON.stringify({ first_name, last_name, email, member_id, role })
+    });
+}
+
+function parseUsersCsv(text) {
+    const lines = String(text || '').split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+    if (!lines.length) return [];
+    return lines.map((line) => {
+        const cols = line.split(',').map((c) => c.trim());
+        return {
+            first_name: cols[0] || '',
+            last_name: cols[1] || '',
+            email: String(cols[2] || '').toLowerCase(),
+            member_id: cols[3] || '',
+            role: String(cols[4] || 'visitor').toLowerCase()
+        };
+    });
 }
 
 async function loadUsers() {
@@ -141,12 +183,6 @@ async function init() {
         return;
     }
     currentUserId = Number(session.user.user_id || 0);
-    byId('profileFirst').value = session.user.first_name || '';
-    byId('profileLast').value = session.user.last_name || '';
-    byId('profileEmail').value = session.user.email || session.user.username || '';
-    byId('profileNewPassword').value = '';
-    byId('profileNewPassword2').value = '';
-
     const settings = await api('includes/api/settings.php');
     byId('timezoneSelect').innerHTML = timezones.map((tz) => `<option value="${tz}" ${settings.calendarTimezone === tz ? 'selected' : ''}>${tz}</option>`).join('');
     byId('showEventAuthorToggle').checked = settings.showEventAuthor !== false;
@@ -159,29 +195,54 @@ async function init() {
     }
 }
 
-byId('saveProfile').onclick = async () => {
-    const pw1 = byId('profileNewPassword').value;
-    const pw2 = byId('profileNewPassword2').value;
-    if (pw1 !== pw2) {
-        byId('adminMsg').textContent = 'New passwords do not match';
-        return;
-    }
-    await api('includes/api/profile_update.php', {
-        method: 'POST',
-        body: JSON.stringify({
-            first_name: byId('profileFirst').value,
-            last_name: byId('profileLast').value,
-            email: byId('profileEmail').value,
-            new_password: pw1
-        })
-    });
-    byId('profileNewPassword').value = '';
-    byId('profileNewPassword2').value = '';
-    byId('adminMsg').textContent = 'Profile saved';
-};
 byId('saveTimezone').onclick = async () => {
     await api('includes/api/admin_timezone_update.php', { method: 'POST', body: JSON.stringify({ calendar_timezone: byId('timezoneSelect').value, show_event_author: byId('showEventAuthorToggle').checked ? 1 : 0 }) });
     byId('adminMsg').textContent = 'Settings saved';
+};
+byId('addUserBtn').onclick = async () => {
+    try {
+        await addSingleUser();
+        byId('adminMsg').textContent = 'User created';
+        byId('newUserFirst').value = '';
+        byId('newUserLast').value = '';
+        byId('newUserEmail').value = '';
+        byId('newUserId').value = '';
+        byId('newUserRole').value = 'visitor';
+        await loadUsers();
+    } catch (e) {
+        byId('adminMsg').textContent = e.message;
+    }
+};
+byId('importUsersBtn').onclick = async () => {
+    try {
+        const file = byId('usersCsvFile').files?.[0];
+        if (!file) throw new Error('Please choose a CSV file first');
+        const text = await file.text();
+        const users = parseUsersCsv(text);
+        if (!users.length) throw new Error('CSV has no rows');
+        await api('includes/api/admin_user_import.php', {
+            method: 'POST',
+            body: JSON.stringify({ users })
+        });
+        byId('adminMsg').textContent = `Imported ${users.length} users`;
+        byId('usersCsvFile').value = '';
+        await loadUsers();
+    } catch (e) {
+        byId('adminMsg').textContent = e.message;
+    }
+};
+byId('downloadUsersCsvTemplateBtn').onclick = () => {
+    const header = 'name,surname,e-mail,ID,user level\n';
+    const example = 'John,Doe,john.doe@example.com,1234567,visitor\n';
+    const blob = new Blob([header, example], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'users_template.csv';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
 };
 byId('saveCountries').onclick = async () => {
     const items = byId('countriesText').value.split('\n').map((l) => l.trim()).filter(Boolean).map((line) => {

@@ -3,12 +3,73 @@ session_start();
 require_once __DIR__ . '/../databaseHandler.php';
 header('Content-Type: application/json');
 
-function jsonInput(): array {
+function csrfToken(): string {
+    if (empty($_SESSION['csrf_token']) || !is_string($_SESSION['csrf_token'])) {
+        $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+    }
+    return $_SESSION['csrf_token'];
+}
+
+function isMutationRequest(): bool {
+    $method = strtoupper((string)($_SERVER['REQUEST_METHOD'] ?? 'GET'));
+    return in_array($method, ['POST', 'PUT', 'PATCH', 'DELETE'], true);
+}
+
+function requestCsrfToken(): string {
+    $hdr = (string)($_SERVER['HTTP_X_CSRF_TOKEN'] ?? '');
+    if ($hdr !== '') {
+        return $hdr;
+    }
+    $post = (string)($_POST['csrf_token'] ?? '');
+    if ($post !== '') {
+        return $post;
+    }
+    $raw = requestRawBody();
+    if ($raw) {
+        $decoded = json_decode($raw, true);
+        if (is_array($decoded) && !empty($decoded['csrf_token']) && is_string($decoded['csrf_token'])) {
+            return $decoded['csrf_token'];
+        }
+    }
+    return '';
+}
+
+function enforceCsrfIfNeeded(): void {
+    if (!isMutationRequest()) {
+        return;
+    }
+    $sent = requestCsrfToken();
+    $token = csrfToken();
+    if ($sent === '' || !hash_equals($token, $sent)) {
+        http_response_code(403);
+        echo json_encode([
+            'success' => false,
+            'message' => 'Invalid CSRF token',
+            'csrf_token' => $token
+        ]);
+        exit;
+    }
+}
+
+function requestRawBody(): string {
+    static $cachedRaw = null;
+    if ($cachedRaw !== null) {
+        return $cachedRaw;
+    }
     $raw = file_get_contents('php://input');
+    $cachedRaw = is_string($raw) ? $raw : '';
+    return $cachedRaw;
+}
+
+function jsonInput(): array {
+    $raw = requestRawBody();
     return $raw ? (json_decode($raw, true) ?: []) : [];
 }
 
 function respond(array $payload, int $status = 200): void {
+    if (!array_key_exists('csrf_token', $payload)) {
+        $payload['csrf_token'] = csrfToken();
+    }
     http_response_code($status);
     echo json_encode($payload);
     exit;
@@ -157,4 +218,93 @@ function canEditEvent(array $user, array $event): bool {
     }
     return false;
 }
+
+function randomPasswordString(int $len = 24): string {
+    $alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';
+    $out = '';
+    for ($i = 0; $i < $len; $i++) {
+        $out .= $alphabet[random_int(0, strlen($alphabet) - 1)];
+    }
+    return $out;
+}
+
+function makeAbsoluteUrl(string $path): string {
+    $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+    $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+    $scriptName = (string)($_SERVER['SCRIPT_NAME'] ?? '');
+    $appBasePath = dirname(dirname(dirname($scriptName)));
+    if ($appBasePath === '\\' || $appBasePath === '/' || $appBasePath === '.') {
+        $appBasePath = '';
+    }
+    return $scheme . '://' . $host . $appBasePath . $path;
+}
+
+function clientIpAddress(): string {
+    $ip = trim((string)($_SERVER['REMOTE_ADDR'] ?? 'unknown'));
+    return $ip !== '' ? $ip : 'unknown';
+}
+
+function rateLimitStorageKey(string $bucket, string $subject): string {
+    $safeBucket = preg_replace('/[^a-z0-9_]/i', '_', strtolower($bucket));
+    return 'rate_' . $safeBucket . '_' . hash('sha256', $subject);
+}
+
+function rateLimitReadState(mysqli $db, string $bucket, string $subject): array {
+    $raw = appSettingGet($db, rateLimitStorageKey($bucket, $subject), '');
+    if (!is_string($raw) || $raw === '') {
+        return ['count' => 0, 'window_start' => time(), 'blocked_until' => 0];
+    }
+    $decoded = json_decode($raw, true);
+    if (!is_array($decoded)) {
+        return ['count' => 0, 'window_start' => time(), 'blocked_until' => 0];
+    }
+    return [
+        'count' => (int)($decoded['count'] ?? 0),
+        'window_start' => (int)($decoded['window_start'] ?? time()),
+        'blocked_until' => (int)($decoded['blocked_until'] ?? 0)
+    ];
+}
+
+function rateLimitWriteState(mysqli $db, string $bucket, string $subject, array $state): void {
+    appSettingSet($db, rateLimitStorageKey($bucket, $subject), json_encode([
+        'count' => (int)($state['count'] ?? 0),
+        'window_start' => (int)($state['window_start'] ?? time()),
+        'blocked_until' => (int)($state['blocked_until'] ?? 0)
+    ]));
+}
+
+function rateLimitCheck(mysqli $db, string $bucket, string $subject, int $maxAttempts, int $windowSeconds, int $blockSeconds): array {
+    $now = time();
+    $state = rateLimitReadState($db, $bucket, $subject);
+    if ($state['blocked_until'] > $now) {
+        return ['allowed' => false, 'retry_after' => $state['blocked_until'] - $now];
+    }
+    if (($now - $state['window_start']) >= $windowSeconds) {
+        $state = ['count' => 0, 'window_start' => $now, 'blocked_until' => 0];
+        rateLimitWriteState($db, $bucket, $subject, $state);
+    }
+    if ($state['count'] >= $maxAttempts) {
+        $state['blocked_until'] = $now + $blockSeconds;
+        rateLimitWriteState($db, $bucket, $subject, $state);
+        return ['allowed' => false, 'retry_after' => $blockSeconds];
+    }
+    return ['allowed' => true, 'retry_after' => 0];
+}
+
+function rateLimitFailure(mysqli $db, string $bucket, string $subject, int $windowSeconds): void {
+    $now = time();
+    $state = rateLimitReadState($db, $bucket, $subject);
+    if (($now - $state['window_start']) >= $windowSeconds) {
+        $state = ['count' => 0, 'window_start' => $now, 'blocked_until' => 0];
+    }
+    $state['count'] += 1;
+    rateLimitWriteState($db, $bucket, $subject, $state);
+}
+
+function rateLimitReset(mysqli $db, string $bucket, string $subject): void {
+    rateLimitWriteState($db, $bucket, $subject, ['count' => 0, 'window_start' => time(), 'blocked_until' => 0]);
+}
+
+csrfToken();
+enforceCsrfIfNeeded();
 ?>

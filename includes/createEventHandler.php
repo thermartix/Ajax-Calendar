@@ -1,55 +1,32 @@
 <?php
-    require "databaseHandler.php";
+require_once __DIR__ . '/api/bootstrap.php';
+requireLogin();
 
-    header("Content-Type: application/json"); // Since we are sending a JSON response here (not an HTML document), set the MIME Type to application/json
-    session_start();
-    // php://input recieves raw post data
-    $json_str = file_get_contents('php://input');
-    //This will store the data into an associative array
-    $json_obj = json_decode($json_str, true);
+$user = currentUser($mysqliConn);
+$json = jsonInput();
 
-    $title = $json_obj['title'];
-    $date = $json_obj['date'];
-    $time = $json_obj['time'];
-    $user_id = $_SESSION['user_id'];
-    $sql = "SELECT * FROM users WHERE `user_id` ='$user_id'";
-    $result = mysqli_query($mysqliConn,$sql);
+$title = trim((string)($json['title'] ?? ''));
+$date = trim((string)($json['date'] ?? ''));
+$time = trim((string)($json['time'] ?? ''));
+$userId = (int)($user['user_id'] ?? 0);
 
-    $user = mysqli_fetch_assoc($result);
-    if(empty($title) || empty($date)|| empty($time)||empty($user_id)){
-        echo json_encode(array(
-            "success" => false,
-            "message" => "Empty Fields title:".$title." user_id: ".$user_id." username: ".$_SESSION['username']
-        ));
-        exit;
-    }
-    else{
-        $sql = "INSERT INTO events(`user_id`,`date`,`time`,`title`) VALUES (?,?,?,?)";
-        $stmt = mysqli_stmt_init($mysqliConn);
-        if(!mysqli_stmt_prepare($stmt, $sql)){
-            echo json_encode(array(
-                "success" => false,
-                "message" => "SQL Error"
-            ));
-            exit;
-        }
-        else{
-            mysqli_stmt_bind_param($stmt, "ssss", $user_id,$date,$time,$title);
-            //mysqli_stmt_execute($stmt);
-            if(mysqli_stmt_execute($stmt)){
-                echo json_encode(array(
-                    "success" => true
-                ));
-                exit;
-            }
-            else{
-                echo json_encode(array(
-                    "success" => false,
-                    "message" => "SQL Error"
-                ));
-                exit;
-            }
+if ($title === '' || $date === '' || $time === '' || $userId <= 0) {
+    respond([
+        'success' => false,
+        'message' => 'Empty fields'
+    ], 422);
+}
 
-        }
-    }
-    return;
+$stmt = mysqli_prepare($mysqliConn, 'INSERT INTO events (user_id, date, time, title) VALUES (?, ?, ?, ?)');
+if (!$stmt) {
+    respond(['success' => false, 'message' => 'SQL error'], 500);
+}
+mysqli_stmt_bind_param($stmt, 'isss', $userId, $date, $time, $title);
+$ok = mysqli_stmt_execute($stmt);
+mysqli_stmt_close($stmt);
+
+if (!$ok) {
+    respond(['success' => false, 'message' => 'SQL error'], 500);
+}
+
+respond(['success' => true]);

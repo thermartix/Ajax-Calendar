@@ -155,8 +155,12 @@ button.danger { background: var(--danger); color: #fff; border-color: var(--dang
 }
 .event-pill.audience-consultants { background: #1d5fbf; }
 .event-pill.is-past {
-    background: #8a949e;
-    color: #f4f7fa;
+    background: #6f9f8e;
+    color: #f2faf7;
+}
+.event-pill.audience-consultants.is-past {
+    background: #5f7fa8;
+    color: #f3f7fc;
 }
 .event-card.audience-consultants { border-left: 4px solid #1d5fbf; }
 .event-card.audience-guests { border-left: 4px solid #1f9d73; }
@@ -169,13 +173,20 @@ button.danger { background: var(--danger); color: #fff; border-color: var(--dang
     background: #fcfffe;
 }
 .event-card.is-past {
-    background: #f3f5f7;
-    border-color: #cfd6dd;
-    color: #5f6770;
+    color: #55615c;
+}
+.event-card.audience-guests.is-past {
+    background: #eef6f2;
+    border-color: #b9d7cb;
+}
+.event-card.audience-consultants.is-past {
+    background: #eef3fa;
+    border-color: #bccde6;
+    color: #4f5f75;
 }
 .event-card.is-past h4,
 .event-card.is-past .event-meta {
-    color: #5f6770;
+    color: inherit;
 }
 .event-card h4 { margin: 0 0 6px; }
 .event-meta { color: var(--muted); margin: 0 0 8px; font-size: 0.9rem; }

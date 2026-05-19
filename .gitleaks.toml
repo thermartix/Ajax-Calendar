@@ -1,0 +1,8 @@
+title = "ajax-calendar gitleaks config"
+
+[allowlist]
+description = "Committed templates and known placeholders"
+paths = [
+  '''includes/database\.config\.php\.txt''',
+  '''\.env\.example'''
+]

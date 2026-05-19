@@ -2,6 +2,8 @@
 
 database/
 push_to_git.bat
-/includes/database.config.php
 assets/logo.png
 assets/immunotec-logo-vector.png
+.env
+.env.local
+.env.*.local

@@ -26,8 +26,8 @@ header('X-Robots-Tag: noindex, nofollow', true);
                 </div>
             </div>
             <div class="header-right">
-                <div class="auth" id="authBlock"></div>
                 <div class="auth" id="langBlock"></div>
+                <div class="auth" id="authBlock"></div>
             </div>
         </header>
 
@@ -96,6 +96,35 @@ header('X-Robots-Tag: noindex, nofollow', true);
             </div>
             <textarea id="eventDescription" rows="4" placeholder="Agenda, notes, speakers..."></textarea>
 
+            <section class="event-datetime-block">
+                <div class="event-datetime-row">
+                    <label for="eventStartDate">Event date</label>
+                    <div class="dt-row">
+                        <input id="eventStartDate" type="text" required placeholder="DD.MM.YYYY">
+                        <button type="button" id="eventStartDatePickBtn">Pick</button>
+                        <input id="eventStartDatePicker" type="date" class="picker-proxy">
+                    </div>
+                    <label class="switch-row" for="eventMultiDay">
+                        <input id="eventMultiDay" type="checkbox" value="1">
+                        <span>Multi day event</span>
+                    </label>
+                </div>
+                <div id="eventEndDateWrap" class="event-datetime-row" hidden>
+                    <label for="eventEndDate">End date</label>
+                    <div class="dt-row">
+                        <input id="eventEndDate" type="text" placeholder="DD.MM.YYYY">
+                        <button type="button" id="eventEndDatePickBtn">Pick</button>
+                        <input id="eventEndDatePicker" type="date" class="picker-proxy">
+                    </div>
+                </div>
+                <div class="event-datetime-row">
+                    <label for="eventStartTime">Start time</label>
+                    <input id="eventStartTime" type="text" required placeholder="HH:MM">
+                    <label for="eventEndTime">End time</label>
+                    <input id="eventEndTime" type="text" required placeholder="HH:MM">
+                </div>
+            </section>
+
             <div id="eventOnlineWrap">
                 <label for="eventLinkOnline" id="eventLinkLabel">Meeting Link</label>
                 <input id="eventLinkOnline" type="url" placeholder="https://zoom.us/... or https://event-site.com">
@@ -142,19 +171,10 @@ header('X-Robots-Tag: noindex, nofollow', true);
             <label for="eventInterpretationCountries">Interpretation</label>
             <select id="eventInterpretationCountries" multiple size="5"></select>
 
-            <label for="eventStart">Start</label>
-            <div class="dt-row">
-                <input id="eventStart" required placeholder="MM/DD/YYYY HH:MM AM">
-                <button type="button" id="eventStartPickBtn">Pick</button>
-                <input id="eventStartPicker" type="datetime-local" class="picker-proxy">
-            </div>
-
-            <label for="eventEnd">End</label>
-            <div class="dt-row">
-                <input id="eventEnd" required placeholder="MM/DD/YYYY HH:MM AM">
-                <button type="button" id="eventEndPickBtn">Pick</button>
-                <input id="eventEndPicker" type="datetime-local" class="picker-proxy">
-            </div>
+            <input id="eventStart" type="hidden">
+            <input id="eventEnd" type="hidden">
+            <input id="eventStartPicker" type="hidden">
+            <input id="eventEndPicker" type="hidden">
 
             <label for="eventRecurrenceType">Recurrence</label>
             <select id="eventRecurrenceType">
@@ -186,6 +206,18 @@ header('X-Robots-Tag: noindex, nofollow', true);
                     <button type="button" id="eventRecurrenceUntilPickBtn">Pick</button>
                     <input id="eventRecurrenceUntilPicker" type="datetime-local" class="picker-proxy">
                 </div>
+                <section id="hiddenOccurrencesWrap" class="hidden-occurrences-wrap" hidden>
+                    <h4>Hidden events</h4>
+                    <table class="hidden-occurrences-table">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="hiddenOccurrencesBody"></tbody>
+                    </table>
+                </section>
             </div>
             </div>
             <section id="eventDialogVisitorPanel" class="event-dialog-visitor-panel" hidden></section>
@@ -256,6 +288,10 @@ header('X-Robots-Tag: noindex, nofollow', true);
                 <h4>Change Password</h4>
                 <div class="profile-grid profile-stack">
                     <div class="profile-row">
+                        <label for="profileCurrentPassword">Current Password</label>
+                        <input id="profileCurrentPassword" type="password" autocomplete="current-password">
+                    </div>
+                    <div class="profile-row">
                         <label for="profileNewPassword">New Password</label>
                         <input id="profileNewPassword" type="password">
                     </div>
@@ -291,6 +327,42 @@ header('X-Robots-Tag: noindex, nofollow', true);
                 <button type="button" id="unsavedCancelBtn">Cancel</button>
                 <button type="button" id="unsavedDiscardBtn">Discard</button>
                 <button type="button" id="unsavedSaveBtn" class="accent">Save</button>
+            </div>
+        </div>
+    </dialog>
+
+    <dialog id="recurringDeleteDialog">
+        <div class="error-dialog-body">
+            <h3>Delete Recurring Event</h3>
+            <p>Do you really want to delete this meeting offering?</p>
+            <div class="dialog-actions">
+                <button type="button" id="recurringDeleteCancelBtn">Cancel</button>
+                <button type="button" id="recurringDeleteOccurrenceBtn" class="accent">Only this event</button>
+                <button type="button" id="recurringDeleteFromHereBtn">All from here</button>
+                <button type="button" id="recurringDeleteSeriesBtn" class="danger">All in this series</button>
+            </div>
+        </div>
+    </dialog>
+
+    <dialog id="recurringSaveScopeDialog">
+        <div class="error-dialog-body">
+            <h3>Save Recurring Event Changes</h3>
+            <p>Should these changes apply only to this event or to all events in the series?</p>
+            <div class="dialog-actions">
+                <button type="button" id="recurringSaveScopeCancelBtn">Cancel</button>
+                <button type="button" id="recurringSaveScopeOccurrenceBtn" class="accent">Only this event</button>
+                <button type="button" id="recurringSaveScopeSeriesBtn">All events in series</button>
+            </div>
+        </div>
+    </dialog>
+
+    <dialog id="recurringOverwriteOverridesDialog">
+        <div class="error-dialog-body">
+            <h3>Overwrite Individual Event Edits?</h3>
+            <p id="recurringOverwriteOverridesText"></p>
+            <div class="dialog-actions">
+                <button type="button" id="recurringOverwriteNoBtn">No (keep individual edits)</button>
+                <button type="button" id="recurringOverwriteYesBtn" class="danger">Yes (overwrite all)</button>
             </div>
         </div>
     </dialog>

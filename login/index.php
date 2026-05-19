@@ -46,25 +46,27 @@ header('X-Robots-Tag: noindex, nofollow', true);
             <h2 id="formTitle">Login</h2>
             <p><a href="../">Back to calendar</a></p>
             <section id="passwordLoginPane">
-                <label>Username</label>
+                <label>Username (e-mail or 7-digit ID)</label>
                 <input id="loginUsername" autocomplete="username">
+                <div id="loginUsernameError" class="field-error hidden">Use a valid e-mail or 7-digit ID.</div>
                 <label>Password</label>
                 <input id="loginPassword" type="password" autocomplete="current-password">
                 <button id="loginBtn" class="accent">Login</button>
                 <div class="divider"></div>
                 <div class="auth-links">
-                    <a id="showOtpLink">Login with OTP</a>
+                    <a id="showOtpLink">Forgot password / OTP</a>
                     <span>|</span>
                     <a id="showSignupLink">Sign up</a>
                 </div>
             </section>
 
             <section id="otpPane" class="hidden">
-                <label>Username (e-mail)</label>
+                <label>Username (e-mail or 7-digit ID)</label>
                 <div class="otp-request-row">
                     <input id="otpUsername" autocomplete="username">
                     <button id="otpRequestBtn">Send OTP</button>
                 </div>
+                <div id="otpUsernameError" class="field-error hidden">Use a valid e-mail or 7-digit ID.</div>
                 <div id="otpAfterSend" class="hidden">
                     <label>OTP</label>
                     <input id="otpCode" placeholder="Enter OTP code">
@@ -75,6 +77,14 @@ header('X-Robots-Tag: noindex, nofollow', true);
                     <a id="resendOtpLink" class="hidden">Resend OTP</a>
                     <a id="backToLoginFromOtp">Back to login</a>
                 </div>
+            </section>
+
+            <section id="setupPane" class="hidden">
+                <label>Set your new password</label>
+                <input id="setupPassword" type="password" autocomplete="new-password">
+                <label>Repeat new password</label>
+                <input id="setupPassword2" type="password" autocomplete="new-password">
+                <button id="setupBtn" class="accent">Set password</button>
             </section>
 
             <section id="signupPane" class="hidden">

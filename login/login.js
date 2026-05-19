@@ -1,7 +1,13 @@
 const byId = (id) => document.getElementById(id);
+let csrfToken = '';
 
 async function api(path, options = {}) {
-    const r = await fetch(path, { headers: { 'Content-Type': 'application/json' }, ...options });
+    const method = String(options.method || 'GET').toUpperCase();
+    const headers = { 'Content-Type': 'application/json', ...(options.headers || {}) };
+    if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method) && csrfToken) {
+        headers['X-CSRF-Token'] = csrfToken;
+    }
+    const r = await fetch(path, { ...options, method, headers });
     const raw = await r.text();
     let d = null;
     try {
@@ -9,6 +15,9 @@ async function api(path, options = {}) {
     } catch (err) {
         const snippet = String(raw || '').replace(/\s+/g, ' ').slice(0, 180);
         throw new Error(`Server returned invalid response. ${snippet}`);
+    }
+    if (d && typeof d.csrf_token === 'string' && d.csrf_token) {
+        csrfToken = d.csrf_token;
     }
     if (!r.ok || d.success === false) throw new Error(d.message || 'Request failed');
     return d;
@@ -21,7 +30,8 @@ function showPane(name, keepMessage = false) {
     byId('passwordLoginPane').classList.toggle('hidden', name !== 'login');
     byId('otpPane').classList.toggle('hidden', name !== 'otp');
     byId('signupPane').classList.toggle('hidden', name !== 'signup');
-    byId('formTitle').textContent = name === 'signup' ? 'Sign up' : (name === 'otp' ? 'Login with OTP' : 'Login');
+    byId('setupPane').classList.toggle('hidden', name !== 'setup');
+    byId('formTitle').textContent = name === 'signup' ? 'Sign up' : (name === 'otp' ? 'Forgot password / OTP' : (name === 'setup' ? 'Set Password' : 'Login'));
     if (!keepMessage) byId('authMessage').textContent = '';
 }
 
@@ -54,7 +64,23 @@ function validateEmailField() {
     return ok;
 }
 
+function isValidIdentifier(v) {
+    const s = String(v || '').trim();
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s) || /^\d{7}$/.test(s);
+}
+
+function validateIdentifierField(inputId, errorId) {
+    const el = byId(inputId);
+    const err = byId(errorId);
+    const ok = isValidIdentifier(el.value);
+    el.classList.toggle('input-error', !ok);
+    err.classList.toggle('hidden', ok);
+    return ok;
+}
+
 async function init() {
+    const params = new URLSearchParams(window.location.search);
+    const setupMode = params.get('setup') === '1';
     const session = await api('../includes/api/auth_session.php');
     if (session.loggedIn) {
         window.location.href = '../';
@@ -62,7 +88,7 @@ async function init() {
     }
     const countries = await api('../includes/api/countries.php');
     byId('signupCountry').innerHTML = countries.countries.map((c) => `<option value="${c.id}">${c.name}</option>`).join('');
-    showPane('login');
+    showPane(setupMode ? 'setup' : 'login');
 }
 
 byId('showOtpLink').onclick = () => showPane('otp');
@@ -72,6 +98,7 @@ byId('backToLoginFromSignup').onclick = () => showPane('login');
 
 byId('loginBtn').onclick = async () => {
     try {
+        if (!validateIdentifierField('loginUsername', 'loginUsernameError')) return;
         await api('../includes/api/auth_login.php', {
             method: 'POST',
             body: JSON.stringify({
@@ -86,6 +113,7 @@ byId('loginBtn').onclick = async () => {
 };
 
 async function requestOtp() {
+    if (!validateIdentifierField('otpUsername', 'otpUsernameError')) return;
     await api('../includes/api/auth_otp_request.php', {
         method: 'POST',
         body: JSON.stringify({ username: String(byId('otpUsername').value || '').trim() })
@@ -131,6 +159,22 @@ byId('signupEmail').addEventListener('input', () => {
     }
     validateEmailField();
 });
+byId('loginUsername').addEventListener('input', () => {
+    if (String(byId('loginUsername').value || '').trim() === '') {
+        byId('loginUsername').classList.remove('input-error');
+        byId('loginUsernameError').classList.add('hidden');
+        return;
+    }
+    validateIdentifierField('loginUsername', 'loginUsernameError');
+});
+byId('otpUsername').addEventListener('input', () => {
+    if (String(byId('otpUsername').value || '').trim() === '') {
+        byId('otpUsername').classList.remove('input-error');
+        byId('otpUsernameError').classList.add('hidden');
+        return;
+    }
+    validateIdentifierField('otpUsername', 'otpUsernameError');
+});
 
 byId('signupBtn').onclick = async () => {
     try {
@@ -149,6 +193,28 @@ byId('signupBtn').onclick = async () => {
             })
         });
         byId('authMessage').textContent = 'Signup created. Please confirm your email from the link we sent.';
+        showPane('login', true);
+    } catch (e) {
+        byId('authMessage').textContent = e.message;
+    }
+};
+
+byId('setupBtn').onclick = async () => {
+    try {
+        const p1 = String(byId('setupPassword').value || '');
+        const p2 = String(byId('setupPassword2').value || '');
+        if (p1 !== p2) throw new Error('Passwords do not match');
+        if (p1.length < 8) throw new Error('Password must have at least 8 characters');
+        const params = new URLSearchParams(window.location.search);
+        await api('../includes/api/auth_setup_password.php', {
+            method: 'POST',
+            body: JSON.stringify({
+                uid: Number(params.get('uid') || 0),
+                token: String(params.get('token') || ''),
+                password: p1
+            })
+        });
+        byId('authMessage').textContent = 'Password set. You can log in now.';
         showPane('login', true);
     } catch (e) {
         byId('authMessage').textContent = e.message;

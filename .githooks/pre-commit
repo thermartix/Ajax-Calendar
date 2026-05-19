@@ -1,0 +1,16 @@
+#!/bin/sh
+
+if ! command -v gitleaks >/dev/null 2>&1; then
+  echo "gitleaks not found. Install it first: winget install --id GitHub.Gitleaks -e"
+  exit 1
+fi
+
+echo "Running gitleaks on staged changes..."
+gitleaks protect --staged --redact --verbose --config .gitleaks.toml
+status=$?
+if [ "$status" -ne 0 ]; then
+  echo "Commit blocked: potential secret detected."
+  exit "$status"
+fi
+
+exit 0

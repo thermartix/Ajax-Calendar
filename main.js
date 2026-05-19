@@ -8,7 +8,8 @@ const state = {
     events: [],
     user: null,
     datetimeFormat: 'eu',
-    showEventAuthor: true
+    showEventAuthor: true,
+    csrfToken: ''
 };
 const EVENT_LANGUAGE_DEFS = [
     { code: 'en', name: 'English', flagIso: 'gb' },
@@ -455,6 +456,7 @@ function renderUserMenu() {
             byId('profileLastName').value = state.user.last_name || '';
             byId('profileMemberId').value = state.user.member_id || '';
             byId('profileCountry').value = state.user.country_id ? String(state.user.country_id) : '';
+            byId('profileCurrentPassword').value = '';
             byId('profileNewPassword').value = '';
             byId('profileNewPassword2').value = '';
             const showCountry = state.user.role !== 'visitor';
@@ -712,13 +714,21 @@ function countriesFlagsRow(codes) {
 }
 
 async function api(path, options = {}) {
-    const response = await fetch(path, { headers: { 'Content-Type': 'application/json' }, ...options });
+    const method = String(options.method || 'GET').toUpperCase();
+    const headers = { 'Content-Type': 'application/json', ...(options.headers || {}) };
+    if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method) && state.csrfToken) {
+        headers['X-CSRF-Token'] = state.csrfToken;
+    }
+    const response = await fetch(path, { ...options, method, headers });
     const raw = await response.text();
     let data = null;
     try {
         data = raw ? JSON.parse(raw) : {};
     } catch (err) {
         throw new Error(`Invalid JSON response (${response.status}) from ${path}: ${raw.slice(0, 200)}`);
+    }
+    if (data && typeof data.csrf_token === 'string' && data.csrf_token) {
+        state.csrfToken = data.csrf_token;
     }
     if (!response.ok || data.success === false) throw new Error(data.message || 'Request failed');
     return data;
@@ -832,13 +842,13 @@ function openEventView(eventItem) {
     const dlg = byId('eventViewDialog');
     const hero = byId('eventViewHero');
     const overlayText = heroOverlayText(eventItem);
-    const soldOutBadge = isSoldOut(eventItem) ? `<div class="hero-overlay-soldout">${t('soldOutBadge')}</div>` : '';
-    if (eventItem.image_path) hero.innerHTML = `<img src="${eventItem.image_path}" alt="${eventItem.title || 'Event image'}"><div class="hero-overlay-note">${overlayText}</div>${soldOutBadge}`;
-    else hero.innerHTML = `<div class="event-view-fallback">${eventItem.title || 'Event'}</div>`;
+    const soldOutBadge = isSoldOut(eventItem) ? `<div class="hero-overlay-soldout">${escHtml(t('soldOutBadge'))}</div>` : '';
+    if (eventItem.image_path) hero.innerHTML = `<img src="${escHtml(eventItem.image_path)}" alt="${escHtml(eventItem.title || 'Event image')}"><div class="hero-overlay-note">${escHtml(overlayText)}</div>${soldOutBadge}`;
+    else hero.innerHTML = `<div class="event-view-fallback">${escHtml(eventItem.title || 'Event')}</div>`;
 
     byId('eventViewTitle').textContent = eventDisplayTitle(eventItem);
     const modeBadge = modeAudienceSentence(eventItem);
-    byId('eventViewCountriesRow').innerHTML = `${countriesFlagsRow(eventItem.country_codes || [])}<span class="event-mode-badge">${modeBadge}</span>`;
+    byId('eventViewCountriesRow').innerHTML = `${countriesFlagsRow(eventItem.country_codes || [])}<span class="event-mode-badge">${escHtml(modeBadge)}</span>`;
     byId('eventViewCountriesRow').className = 'event-countries-inline';
     const metaEl = byId('eventViewMeta');
     metaEl.textContent = formatEventTimeRange(eventItem.start_at, eventItem.end_at);
@@ -859,8 +869,8 @@ function openEventView(eventItem) {
     const languageCode = String(eventItem.event_language_country_code || '').toLowerCase();
     const languageFlagIso = languageCode ? flagIsoByCode.get(languageCode) : null;
     const interpFlagIsos = (Array.isArray(eventItem.interpretation_country_codes) ? eventItem.interpretation_country_codes : []).map((c) => flagIsoByCode.get(String(c || '').toLowerCase())).filter(Boolean);
-    const languageText = languageFlagIso ? `<div><strong>${t('eventLanguage')}:</strong> <span class="flag-row">${countryFlagHtml(languageFlagIso, 'main-language')}</span></div>` : '';
-    const interpText = interpFlagIsos.length ? `<div><strong>${t('interpretation')}:</strong> <div class="flag-row">${interpFlagIsos.map((iso) => countryFlagHtml(iso)).join('')}</div></div>` : '';
+    const languageText = languageFlagIso ? `<div><strong>${escHtml(t('eventLanguage'))}:</strong> <span class="flag-row">${countryFlagHtml(languageFlagIso, 'main-language')}</span></div>` : '';
+    const interpText = interpFlagIsos.length ? `<div><strong>${escHtml(t('interpretation'))}:</strong> <div class="flag-row">${interpFlagIsos.map((iso) => countryFlagHtml(iso)).join('')}</div></div>` : '';
     byId('eventViewQrWrap').innerHTML = `${languageText}${interpText}`;
 
     if ((eventItem.event_mode || 'online') === 'offline') {
@@ -868,18 +878,18 @@ function openEventView(eventItem) {
         const venueName = venueParts.length ? venueParts[0] : '';
         const venueAddrLines = venueParts.length > 1 ? venueParts.slice(1) : [];
         const venueImg = eventItem.venue_image_path
-            ? `<div class="venue-image-col"><img src="${eventItem.venue_image_path}" alt="Venue photo"></div>`
+            ? `<div class="venue-image-col"><img src="${escHtml(eventItem.venue_image_path)}" alt="Venue photo"></div>`
             : '';
         const venueAddr = eventItem.venue_address
-            ? `<div class="venue-address-col"><strong>${t('venueAddress')}:</strong>${venueName ? `<div class="venue-name">${venueName}</div>` : ''}${venueAddrLines.length ? `<div>${venueAddrLines.join('<br>')}</div>` : (venueName ? '' : `<div>${String(eventItem.venue_address).replace(/\n/g, '<br>')}</div>`)}</div>`
+            ? `<div class="venue-address-col"><strong>${escHtml(t('venueAddress'))}:</strong>${venueName ? `<div class="venue-name">${escHtml(venueName)}</div>` : ''}${venueAddrLines.length ? `<div>${venueAddrLines.map((line) => escHtml(line)).join('<br>')}</div>` : (venueName ? '' : `<div>${escHtml(String(eventItem.venue_address)).replace(/\n/g, '<br>')}</div>`)}</div>`
             : '';
         if (eventItem.ticket_url) {
-            const ticketLabel = isSoldOut(eventItem) ? `${t('soldOutYes')}!` : t('getTicketNow');
-            byId('eventViewTicketWrap').innerHTML = `<a href="${eventItem.ticket_url}" target="_blank" rel="noopener" class="ticket-cta"><span class="ticket-icon" aria-hidden="true">&#127915;</span>${ticketLabel}</a>`;
+            const ticketLabel = isSoldOut(eventItem) ? `${escHtml(t('soldOutYes'))}!` : escHtml(t('getTicketNow'));
+            byId('eventViewTicketWrap').innerHTML = `<a href="${escHtml(eventItem.ticket_url)}" target="_blank" rel="noopener" class="ticket-cta"><span class="ticket-icon" aria-hidden="true">&#127915;</span>${ticketLabel}</a>`;
         }
         byId('eventViewLinkWrap').innerHTML = (venueImg || venueAddr) ? `<div class="venue-layout">${venueImg}${venueAddr}</div>` : '';
     } else {
-        byId('eventViewLinkWrap').innerHTML = eventItem.event_link ? `<strong>${t('zoomLink')}:</strong> <a href="${eventItem.event_link}" target="_blank" rel="noopener">${eventItem.event_link}</a>` : '';
+        byId('eventViewLinkWrap').innerHTML = eventItem.event_link ? `<strong>${escHtml(t('zoomLink'))}:</strong> <a href="${escHtml(eventItem.event_link)}" target="_blank" rel="noopener">${escHtml(eventItem.event_link)}</a>` : '';
     }
     const qrImg = byId('eventViewQrImg');
     if ((eventItem.event_mode || 'online') === 'online' && eventItem.event_link) {
@@ -1458,9 +1468,9 @@ function renderList(events) {
         const card = document.createElement('article');
         card.className = `event-card is-clickable ${isConsultantsOnly(e) ? 'audience-consultants' : 'audience-guests'} ${isPastEvent(e) ? 'is-past' : ''}`;
         card.title = audienceSuffix(e);
-        card.innerHTML = `<h4>${eventDisplayTitle(e)}</h4>
+        card.innerHTML = `<h4>${escHtml(eventDisplayTitle(e))}</h4>
             <p class="event-meta">${formatEventTimeRange(e.start_at, e.end_at).replace('\n', ' | ')}</p>
-            <p>${e.description || ''}</p>`;
+            <p>${escHtml(e.description || '')}</p>`;
         card.addEventListener('click', () => openEventDialog(e));
         wrap.appendChild(card);
     });
@@ -1495,7 +1505,7 @@ function renderVisitorWeekOverview(anchor) {
             const card = document.createElement('article');
             card.className = `event-card week-event-card is-clickable ${isConsultantsOnly(e) ? 'audience-consultants' : 'audience-guests'} ${isPastEvent(e) ? 'is-past' : ''}`;
             card.title = audienceSuffix(e);
-            card.innerHTML = `<h4>${eventDisplayTitle(e)}</h4><p class="event-meta">${formatEventTimeRange(e.start_at, e.end_at).replace('\n', ' | ')}</p>`;
+            card.innerHTML = `<h4>${escHtml(eventDisplayTitle(e))}</h4><p class="event-meta">${formatEventTimeRange(e.start_at, e.end_at).replace('\n', ' | ')}</p>`;
             card.addEventListener('click', () => openEventDialog(e));
             col.appendChild(card);
         });
@@ -1843,8 +1853,13 @@ byId('eventEndDate').addEventListener('change', syncLegacyDateFieldsFromNewInput
 
 byId('profileForm').addEventListener('submit', async (e) => {
     e.preventDefault();
+    const currentPassword = byId('profileCurrentPassword').value;
     const newPassword = byId('profileNewPassword').value;
     const newPassword2 = byId('profileNewPassword2').value;
+    if (newPassword && !currentPassword) {
+        showErrorWindow('Current password is required.');
+        return;
+    }
     if (newPassword !== newPassword2) {
         showErrorWindow('New passwords do not match.');
         return;
@@ -1857,6 +1872,7 @@ byId('profileForm').addEventListener('submit', async (e) => {
             member_id: byId('profileMemberId').value.trim(),
             country_id: byId('profileCountry').value,
             datetime_format: byId('profileDatetimeFormat').value,
+            current_password: currentPassword,
             new_password: newPassword
         })
     });
@@ -1959,13 +1975,20 @@ byId('eventForm').addEventListener('submit', async (e) => {
         if (img) form.append('event_image', img);
         const venueImg = byId('eventVenueImage').files[0];
         if (venueImg) form.append('venue_image', venueImg);
-        const response = await fetch('includes/api/event_save.php', { method: 'POST', body: form });
+        const response = await fetch('includes/api/event_save.php', {
+            method: 'POST',
+            headers: state.csrfToken ? { 'X-CSRF-Token': state.csrfToken } : {},
+            body: form
+        });
         const raw = await response.text();
         let data = {};
         try {
             data = raw ? JSON.parse(raw) : {};
         } catch (err) {
             throw new Error(`Invalid server response (${response.status}): ${raw.slice(0, 220)}`);
+        }
+        if (data && typeof data.csrf_token === 'string' && data.csrf_token) {
+            state.csrfToken = data.csrf_token;
         }
         if (!response.ok || data.success === false) throw new Error(data.message || 'Request failed');
         byId('eventDialog').close();

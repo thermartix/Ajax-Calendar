@@ -1468,12 +1468,6 @@ function renderList(events) {
     root.appendChild(wrap);
 }
 
-function isPastEvent(eventItem) {
-    const end = parseSqlLocal(eventItem?.end_at || '');
-    if (!end || Number.isNaN(end.getTime())) return false;
-    return end.getTime() < Date.now();
-}
-
 function renderVisitorWeekOverview(anchor) {
     const root = byId('calendarRoot');
     root.innerHTML = '';
